@@ -1,5 +1,9 @@
 import glang.compiler.token.GlangTokenizer;
+import glang.compiler.token.Token;
+import glang.compiler.token.TokenSourcePrinter;
 import glang.compiler.token.TokenizeFailure;
+
+import java.util.List;
 
 public class TestMain {
 
@@ -9,15 +13,20 @@ public class TestMain {
         /*
             Block comment
          */
-        a == b;
+            a == b;
         a >>>= b;
         """;
 
     public static void main(String[] args) {
+        final List<Token> tokens;
         try {
-            System.out.println(GlangTokenizer.tokenize(SOURCE));
+            tokens = GlangTokenizer.tokenize(SOURCE);
         } catch (TokenizeFailure e) {
             System.err.println(e.getMessage());
+            return;
         }
+        System.out.println(tokens);
+        System.out.println();
+        System.out.println(TokenSourcePrinter.print(tokens));
     }
 }

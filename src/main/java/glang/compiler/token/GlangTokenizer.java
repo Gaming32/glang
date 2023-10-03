@@ -27,7 +27,7 @@ public final class GlangTokenizer {
         this.source = Arrays.copyOf(source, source.length);
     }
 
-    public static List<Token> tokenize(String source) {
+    public static List<Token> tokenize(String source) throws TokenizeFailure {
         return new GlangTokenizer(source).tokenize();
     }
 
@@ -38,7 +38,7 @@ public final class GlangTokenizer {
         return sourceString;
     }
 
-    public List<Token> tokenize() {
+    public List<Token> tokenize() throws TokenizeFailure {
         reset();
         final List<Token> result = new ArrayList<>();
         final StringBuilder tokenBuilder = new StringBuilder();
@@ -97,68 +97,8 @@ public final class GlangTokenizer {
                 continue;
             }
             handleSimple(result, tokenBuilder, c);
-
-//            if (Character.isWhitespace(c)) {
-//                handleBasicToken(result, tokenBuilder, tokenIsIdentifier);
-//                continue;
-//            } else if (c == '"' || c == '\'') {
-//                handleBasicToken(result, tokenBuilder, tokenIsIdentifier);
-//                handleString(result, tokenBuilder, c);
-//                continue;
-//            } else if (c >= '0' && c <= '9' && !tokenIsIdentifier) {
-//                handleBasicToken(result, tokenBuilder, tokenIsIdentifier);
-//                handleNumber(result, tokenBuilder, c);
-//                continue;
-//            } else if (c == '.' && tokenBuilder.isEmpty()) {
-//                handleBasicToken(result, tokenBuilder, tokenIsIdentifier);
-//                final char peeked = peek();
-//                if (peeked >= '0' && peeked <= '9') {
-//                    handleNumber(result, tokenBuilder, '.');
-//                } else {
-//                    tokenBuilder.append('.');
-//                    tokenIsIdentifier = false;
-//                }
-//                continue;
-//            }
-//            if (tokenIsIdentifier && !tokenBuilder.isEmpty()) {
-//                if (!Character.isJavaIdentifierPart(c)) {
-//                    handleBasicToken(result, tokenBuilder, true);
-//                    tokenIsIdentifier = false;
-//                }
-//            } else if (Character.isJavaIdentifierStart(c)) {
-//                if (!tokenBuilder.isEmpty()) {
-//                    handleBasicToken(result, tokenBuilder, false);
-//                }
-//                tokenIsIdentifier = true;
-//            } else {
-//                tokenIsIdentifier = false;
-//            }
-//            tokenBuilder.append(c);
         }
         return List.copyOf(result);
-    }
-
-    private void handleBasicToken(List<Token> result, StringBuilder tokenBuilder, boolean tokenIsIdentifier) {
-        if (tokenBuilder.isEmpty()) return;
-        final String token = tokenBuilder.toString();
-        tokenBuilder.setLength(0);
-        rewind(1); // We've already done next() and got the next token, so we rewind an extra character
-        if (tokenIsIdentifier) {
-            final TokenType keyword = TokenType.getKeyword(token);
-            result.add(
-                keyword != null
-                    ? new Token.Basic(keyword, getSourceLocation(token.length()))
-                    : new Token.Identifier(token, getSourceLocation(token.length()))
-            );
-            skipFast(1);
-            return;
-        }
-        final TokenType type = TokenType.getSimple(token);
-        if (type == null) {
-            throw error("Unknown token '" + token + "'", token.length());
-        }
-        result.add(new Token.Basic(type, getSourceLocation(token.length())));
-        skipFast(1);
     }
 
     private void handleIdentifier(List<Token> result, StringBuilder tokenBuilder, char firstChar) {
@@ -178,7 +118,7 @@ public final class GlangTokenizer {
 
     // NOTE: This has an issue where if ab and abcd are valid, but abc isn't, abcab will cause an error instead of
     // becoming [ab, c, ab]. However, no existing tokens match have this interaction, so this is fine for now.
-    private void handleSimple(List<Token> result, StringBuilder tokenBuilder, char firstChar) {
+    private void handleSimple(List<Token> result, StringBuilder tokenBuilder, char firstChar) throws TokenizeFailure {
         tokenBuilder.setLength(0);
         SymbolMap<TokenType> symbolMap = TokenType.SIMPLE_TOKENS.getNext(firstChar);
         if (symbolMap == null) {
@@ -199,7 +139,7 @@ public final class GlangTokenizer {
         result.add(new Token.Basic(symbolMap.getValue(), getSourceLocation(tokenBuilder.length())));
     }
 
-    private void handleString(List<Token> result, StringBuilder tokenBuilder, char terminator) {
+    private void handleString(List<Token> result, StringBuilder tokenBuilder, char terminator) throws TokenizeFailure {
         tokenBuilder.setLength(0);
         final int startColumn = column;
         char c;

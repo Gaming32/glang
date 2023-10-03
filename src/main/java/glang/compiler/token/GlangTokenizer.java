@@ -4,6 +4,7 @@ import glang.compiler.SourceLocation;
 import glang.compiler.util.SymbolMap;
 import glang.util.GlangStringUtils;
 
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -205,10 +206,92 @@ public final class GlangTokenizer {
         result.add(tokenType.apply(tokenBuilder.toString(), getSourceLocation(column - startColumn + 1)));
     }
 
-    private void handleNumber(List<Token> result, StringBuilder tokenBuilder, char firstChar) {
+    private void handleNumber(List<Token> result, StringBuilder tokenBuilder, char firstChar) throws TokenizeFailure {
         tokenBuilder.setLength(0);
-        throw new UnsupportedOperationException("Numbers not yet implemented");
-//        tokenBuilder.append(firstChar);
+        tokenBuilder.append(firstChar);
+        final int start = index;
+
+        int radix = 10;
+        int radixSkip = 0;
+        if (firstChar == '0') {
+            final char indicator = peek();
+            if (indicator >= '1' && indicator <= '9') {
+                radixSkip = 1;
+                radix = 8;
+            } else if (indicator == 'o' || indicator == 'O') {
+                radixSkip = 2;
+                radix = 8;
+            } else if (indicator == 'x' || indicator == 'X') {
+                radixSkip = 2;
+                radix = 16;
+            } else if (indicator == 'b' || indicator == 'B') {
+                radixSkip = 2;
+                radix = 2;
+            }
+        }
+        if (radixSkip > 1) {
+            skip(radixSkip - 1);
+        }
+
+        boolean hasDecimal = firstChar == '.';
+        while (true) {
+            final char c = peek();
+            if (Character.digit(c, radix) != -1) {
+                next();
+                continue;
+            }
+            if (c == '.') {
+                next();
+                final char peeked = peek();
+                if (hasDecimal || radix != 10 || peeked < '0' || peeked > '9') {
+                    rewind(1);
+                    break;
+                } else {
+                    hasDecimal = true;
+                }
+                continue;
+            }
+            if (c == 'e' || c == 'E') {
+                next();
+                hasDecimal = true;
+                final char peeked = peek();
+                if (peeked == '-' || peeked == '+') {
+                    next();
+                }
+                continue;
+            }
+            break;
+        }
+        tokenBuilder.append(source, start, index - start);
+
+        final String token = tokenBuilder.substring(radixSkip);
+        if (token.isEmpty()) {
+            next();
+            throw error("Expected number");
+        }
+        Number number;
+        if (hasDecimal) {
+            try {
+                number = Double.parseDouble(token);
+            } catch (NumberFormatException e) {
+                throw error("Invalid decimal: " + e.getMessage(), tokenBuilder.length());
+            }
+        } else {
+            try {
+                number = Integer.parseInt(token, radix);
+            } catch (NumberFormatException e1) {
+                try {
+                    number = Long.parseLong(token, radix);
+                } catch (NumberFormatException e2) {
+                    try {
+                        number = new BigInteger(token, radix);
+                    } catch (NumberFormatException e3) {
+                        throw error("Invalid integer: " + e3.getMessage(), tokenBuilder.length());
+                    }
+                }
+            }
+        }
+        result.add(new Token.Num(number, getSourceLocation(tokenBuilder.length())));
     }
 
     private TokenizeFailure error(String reason) {
@@ -298,16 +381,10 @@ public final class GlangTokenizer {
         if (n < 0) {
             throw new IllegalArgumentException("Cannot skip negative distance. Use rewind().");
         }
-        final int newIndex = Math.min(index + n, source.length);
-        for (int i = index; i < newIndex; i++) {
-            if (source[i] == '\n') {
-                line++;
-                column = 0;
-            } else {
-                column++;
-            }
+        // TODO: Optimize?
+        for (int i = 0; i < n; i++) {
+            next();
         }
-        index = newIndex;
     }
 
     private void skipFast(int n) {

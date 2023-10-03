@@ -1,7 +1,7 @@
 package glang.util;
 
 public class GlangStringUtils {
-    public static String escape(String string, boolean escapeSingleQuotes) {
+    public static String escape(String string, String escapeQuotes) {
         final StringBuilder result = new StringBuilder(string.length() + 4);
         for (int i = 0; i < string.length(); i++) {
             final char c = string.charAt(i);
@@ -12,8 +12,12 @@ public class GlangStringUtils {
                 case '\n' -> result.append("\\n");
                 case '\r' -> result.append("\\r");
                 case '\f' -> result.append("\\f");
-                case '\'' -> result.append(escapeSingleQuotes ? "\\'" : "'");
-                case '"' -> result.append(escapeSingleQuotes ? "\"" : "\\\"");
+                case '\'', '"', '`' -> {
+                    if (escapeQuotes.indexOf(c) >= 0) {
+                        result.append('\\');
+                    }
+                    result.append(c);
+                }
                 case '\\' -> result.append("\\\\");
                 default -> {
                     final int type = Character.getType(c);

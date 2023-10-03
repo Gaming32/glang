@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
+import java.util.function.BiFunction;
 
 public final class GlangTokenizer {
     private static final char EOF = '\0';
@@ -48,7 +49,10 @@ public final class GlangTokenizer {
             switch (c) {
                 case '"':
                 case '\'':
-                    handleString(result, tokenBuilder, c);
+                    handleString(result, tokenBuilder, c, Token.Str::new);
+                    continue;
+                case '`':
+                    handleString(result, tokenBuilder, '`', Token.Identifier::new);
                     continue;
                 case '0':
                 case '1':
@@ -139,7 +143,10 @@ public final class GlangTokenizer {
         result.add(new Token.Basic(symbolMap.getValue(), getSourceLocation(tokenBuilder.length())));
     }
 
-    private void handleString(List<Token> result, StringBuilder tokenBuilder, char terminator) throws TokenizeFailure {
+    private void handleString(
+        List<Token> result, StringBuilder tokenBuilder, char terminator,
+        BiFunction<String, SourceLocation, Token> tokenType
+    ) throws TokenizeFailure {
         tokenBuilder.setLength(0);
         final int startColumn = column;
         char c;
@@ -156,6 +163,7 @@ public final class GlangTokenizer {
                     case 'f' -> tokenBuilder.append('\f');
                     case '\'' -> tokenBuilder.append('\'');
                     case '"' -> tokenBuilder.append('"');
+                    case '`' -> tokenBuilder.append('`');
                     case '\\' -> tokenBuilder.append('\\');
                     case 'x', 'u', 'U' -> {
                         final int digitCount = switch (escapeCode) {
@@ -194,7 +202,7 @@ public final class GlangTokenizer {
             }
             tokenBuilder.append(c);
         }
-        result.add(new Token.Str(tokenBuilder.toString(), getSourceLocation(column - startColumn + 1)));
+        result.add(tokenType.apply(tokenBuilder.toString(), getSourceLocation(column - startColumn + 1)));
     }
 
     private void handleNumber(List<Token> result, StringBuilder tokenBuilder, char firstChar) {

@@ -58,6 +58,17 @@ public abstract sealed class Token {
 
         @Override
         public String prettyPrint() {
+            if (identifier.isEmpty()) {
+                return "``";
+            }
+            if (!Character.isJavaIdentifierStart(identifier.charAt(0))) {
+                return '`' + GlangStringUtils.escape(identifier, "`") + '`';
+            }
+            for (int i = 1; i < identifier.length(); i++) {
+                if (!Character.isJavaIdentifierPart(identifier.charAt(i))) {
+                    return '`' + GlangStringUtils.escape(identifier, "`") + '`';
+                }
+            }
             return identifier;
         }
     }
@@ -76,7 +87,10 @@ public abstract sealed class Token {
 
         @Override
         public String prettyPrint() {
-            return "\"" + GlangStringUtils.escape(value, false) + "\"";
+            if (value.indexOf('"') >= 0) {
+                return '\'' + GlangStringUtils.escape(value, "'") + '\'';
+            }
+            return '"' + GlangStringUtils.escape(value, "\"") + '"';
         }
     }
 

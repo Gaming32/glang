@@ -15,6 +15,7 @@ public class TestMain {
          */
             a == b;
         a >>>= b;
+        println(`%*\\\\\\``)
         """;
 
     public static void main(String[] args) {

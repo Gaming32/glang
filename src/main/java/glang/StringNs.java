@@ -5,8 +5,13 @@ import glang.util.GlangStringUtils;
 
 public class StringNs {
     @ExtensionMethod
-    public static String escapeGlang(String thiz, boolean escapeSingleQuotes) {
-        return GlangStringUtils.escape(thiz, escapeSingleQuotes);
+    public static String escapeGlang(String thiz, String escapeQuotes) {
+        return GlangStringUtils.escape(thiz, escapeQuotes);
+    }
+
+    @ExtensionMethod
+    public static String escapeGlang(String thiz) {
+        return escapeGlang(thiz, "\"'`");
     }
 
     @ExtensionMethod

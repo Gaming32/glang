@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="821fbeb9-5c64-4b72-a2e5-86ae371fc8c4" name="Changes" comment="">
+      <change afterPath="E:/glang/.gitignore" afterDir="false" />
+      <change afterPath="E:/glang/.idea/.gitignore" afterDir="false" />
+      <change afterPath="E:/glang/.idea/checkstyle-idea.xml" afterDir="false" />
+      <change afterPath="E:/glang/.idea/discord.xml" afterDir="false" />
+      <change afterPath="E:/glang/.idea/gradle.xml" afterDir="false" />
+      <change afterPath="E:/glang/.idea/inspectionProfiles/Project_Default.xml" afterDir="false" />
+      <change afterPath="E:/glang/.idea/misc.xml" afterDir="false" />
+      <change afterPath="E:/glang/.idea/vcs.xml" afterDir="false" />
+      <change afterPath="E:/glang/.idea/workspace.xml" afterDir="false" />
+      <change afterPath="E:/glang/build.gradle.kts" afterDir="false" />
+      <change afterPath="E:/glang/gradle/wrapper/gradle-wrapper.jar" afterDir="false" />
+      <change afterPath="E:/glang/gradle/wrapper/gradle-wrapper.properties" afterDir="false" />
+      <change afterPath="E:/glang/gradlew" afterDir="false" />
+      <change afterPath="E:/glang/gradlew.bat" afterDir="false" />
+      <change afterPath="E:/glang/settings.gradle.kts" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="ExternalProjectsData">
+    <projectState path="E:glang">
+      <ProjectState />
+    </projectState>
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="E:/glang" />
+  </component>
+  <component name="MacroExpansionManager">
+    <option name="directoryName" value="selc9rki" />
+  </component>
+  <component name="ProjectCodeStyleSettingsMigration">
+    <option name="version" value="2" />
+  </component>
+  <component name="ProjectLevelVcsManager" settingsEditedManually="true" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "RunOnceActivity.OpenProjectViewOnStart": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "git-widget-placeholder": "main",
+    "settings.editor.selected.configurable": "editor.reader.mode"
+  }
+}]]></component>
+  <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="821fbeb9-5c64-4b72-a2e5-86ae371fc8c4" name="Changes" comment="" />
+      <created>1696257538774</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1696257538774</updated>
+    </task>
+    <servers />
+  </component>
+</project>

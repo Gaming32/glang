@@ -1,0 +1,375 @@
+package glang.compiler.token;
+
+import glang.compiler.SourceLocation;
+import glang.compiler.util.SymbolMap;
+import glang.util.GlangStringUtils;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Locale;
+
+public final class GlangTokenizer {
+    private static final char EOF = '\0';
+
+    private final char[] source;
+    private String sourceString;
+
+    private int index, line, column;
+    private boolean wasNewLine, advancedPastEof;
+
+    public GlangTokenizer(String source) {
+        this.source = source.toCharArray();
+        this.sourceString = source;
+    }
+
+    public GlangTokenizer(char[] source) {
+        this.source = Arrays.copyOf(source, source.length);
+    }
+
+    public static List<Token> tokenize(String source) {
+        return new GlangTokenizer(source).tokenize();
+    }
+
+    public String getSource() {
+        if (sourceString == null) {
+            sourceString = new String(source);
+        }
+        return sourceString;
+    }
+
+    public List<Token> tokenize() {
+        reset();
+        final List<Token> result = new ArrayList<>();
+        final StringBuilder tokenBuilder = new StringBuilder();
+        char c;
+        while ((c = next()) != EOF) {
+            if (Character.isWhitespace(c)) continue;
+            switch (c) {
+                case '"':
+                case '\'':
+                    handleString(result, tokenBuilder, c);
+                    continue;
+                case '0':
+                case '1':
+                case '2':
+                case '3':
+                case '4':
+                case '5':
+                case '6':
+                case '7':
+                case '8':
+                case '9':
+                    handleNumber(result, tokenBuilder, c);
+                    continue;
+                case '.': {
+                    final char peeked = peek();
+                    if (peeked >= '0' && peeked <= '9') {
+                        handleNumber(result, tokenBuilder, c);
+                        continue;
+                    }
+                    break;
+                }
+                case '/': {
+                    final char peeked = peek();
+                    if (peeked == '/') {
+                        next();
+                        //noinspection StatementWithEmptyBody
+                        while (next() != '\n') {
+                            // Intentionally empty
+                        }
+                        continue;
+                    }
+                    if (peeked == '*') {
+                        next();
+                        while (true) {
+                            if (next() == '*' && peek() == '/') {
+                                next();
+                                break;
+                            }
+                        }
+                        continue;
+                    }
+                }
+            }
+            if (Character.isJavaIdentifierStart(c)) {
+                handleIdentifier(result, tokenBuilder, c);
+                continue;
+            }
+            handleSimple(result, tokenBuilder, c);
+
+//            if (Character.isWhitespace(c)) {
+//                handleBasicToken(result, tokenBuilder, tokenIsIdentifier);
+//                continue;
+//            } else if (c == '"' || c == '\'') {
+//                handleBasicToken(result, tokenBuilder, tokenIsIdentifier);
+//                handleString(result, tokenBuilder, c);
+//                continue;
+//            } else if (c >= '0' && c <= '9' && !tokenIsIdentifier) {
+//                handleBasicToken(result, tokenBuilder, tokenIsIdentifier);
+//                handleNumber(result, tokenBuilder, c);
+//                continue;
+//            } else if (c == '.' && tokenBuilder.isEmpty()) {
+//                handleBasicToken(result, tokenBuilder, tokenIsIdentifier);
+//                final char peeked = peek();
+//                if (peeked >= '0' && peeked <= '9') {
+//                    handleNumber(result, tokenBuilder, '.');
+//                } else {
+//                    tokenBuilder.append('.');
+//                    tokenIsIdentifier = false;
+//                }
+//                continue;
+//            }
+//            if (tokenIsIdentifier && !tokenBuilder.isEmpty()) {
+//                if (!Character.isJavaIdentifierPart(c)) {
+//                    handleBasicToken(result, tokenBuilder, true);
+//                    tokenIsIdentifier = false;
+//                }
+//            } else if (Character.isJavaIdentifierStart(c)) {
+//                if (!tokenBuilder.isEmpty()) {
+//                    handleBasicToken(result, tokenBuilder, false);
+//                }
+//                tokenIsIdentifier = true;
+//            } else {
+//                tokenIsIdentifier = false;
+//            }
+//            tokenBuilder.append(c);
+        }
+        return List.copyOf(result);
+    }
+
+    private void handleBasicToken(List<Token> result, StringBuilder tokenBuilder, boolean tokenIsIdentifier) {
+        if (tokenBuilder.isEmpty()) return;
+        final String token = tokenBuilder.toString();
+        tokenBuilder.setLength(0);
+        rewind(1); // We've already done next() and got the next token, so we rewind an extra character
+        if (tokenIsIdentifier) {
+            final TokenType keyword = TokenType.getKeyword(token);
+            result.add(
+                keyword != null
+                    ? new Token.Basic(keyword, getSourceLocation(token.length()))
+                    : new Token.Identifier(token, getSourceLocation(token.length()))
+            );
+            skipFast(1);
+            return;
+        }
+        final TokenType type = TokenType.getSimple(token);
+        if (type == null) {
+            throw error("Unknown token '" + token + "'", token.length());
+        }
+        result.add(new Token.Basic(type, getSourceLocation(token.length())));
+        skipFast(1);
+    }
+
+    private void handleIdentifier(List<Token> result, StringBuilder tokenBuilder, char firstChar) {
+        tokenBuilder.setLength(0);
+        tokenBuilder.append(firstChar);
+        while (Character.isJavaIdentifierPart(peek())) {
+            tokenBuilder.append(next());
+        }
+        final String token = tokenBuilder.toString();
+        final TokenType keyword = TokenType.KEYWORDS.get(token);
+        if (keyword != null) {
+            result.add(new Token.Basic(keyword, getSourceLocation(token.length())));
+            return;
+        }
+        result.add(new Token.Identifier(token, getSourceLocation(token.length())));
+    }
+
+    // NOTE: This has an issue where if ab and abcd are valid, but abc isn't, abcab will cause an error instead of
+    // becoming [ab, c, ab]. However, no existing tokens match have this interaction, so this is fine for now.
+    private void handleSimple(List<Token> result, StringBuilder tokenBuilder, char firstChar) {
+        tokenBuilder.setLength(0);
+        SymbolMap<TokenType> symbolMap = TokenType.SIMPLE_TOKENS.getNext(firstChar);
+        if (symbolMap == null) {
+            throw error("Unknown token '" + firstChar + "'");
+        }
+        tokenBuilder.append(firstChar);
+        while (true) {
+            final char peeked = peek(tokenBuilder.length() - 1);
+            final SymbolMap<TokenType> next = symbolMap.getNext(peeked);
+            if (next == null) break;
+            symbolMap = next;
+            tokenBuilder.append(peeked);
+        }
+        skipFast(tokenBuilder.length() - 1);
+        if (symbolMap.getValue() == null) {
+            throw error("Unknown token '" + tokenBuilder + "'", tokenBuilder.length());
+        }
+        result.add(new Token.Basic(symbolMap.getValue(), getSourceLocation(tokenBuilder.length())));
+    }
+
+    private void handleString(List<Token> result, StringBuilder tokenBuilder, char terminator) {
+        tokenBuilder.setLength(0);
+        final int startColumn = column;
+        char c;
+        while ((c = next()) != terminator) {
+            if (c == '\\') {
+                final char escapeCode = next();
+                switch (escapeCode) {
+                    case EOF -> throw error("Expected escape code");
+                    case '0' -> tokenBuilder.append('\0');
+                    case 't' -> tokenBuilder.append('\t');
+                    case 'b' -> tokenBuilder.append('\b');
+                    case 'n' -> tokenBuilder.append('\n');
+                    case 'r' -> tokenBuilder.append('\r');
+                    case 'f' -> tokenBuilder.append('\f');
+                    case '\'' -> tokenBuilder.append('\'');
+                    case '"' -> tokenBuilder.append('"');
+                    case '\\' -> tokenBuilder.append('\\');
+                    case 'x', 'u', 'U' -> {
+                        final int digitCount = switch (escapeCode) {
+                            case 'x' -> 2;
+                            case 'u' -> 4;
+                            case 'U' -> 8;
+                            default -> throw new AssertionError();
+                        };
+                        final char[] digits = new char[digitCount];
+                        for (int i = 0; i < digitCount; i++) {
+                            final char digit = next();
+                            if (digit == '\n' || digit == EOF) {
+                                throw error("Unfinished \\" + escapeCode + " escape");
+                            }
+                            if (Character.digit(digit, 16) == -1) {
+                                throw error("'" + digit + "' not a digit in \\" + escapeCode + " escape");
+                            }
+                            digits[i] = digit;
+                        }
+                        final int codepoint = Integer.parseUnsignedInt(new String(digits), 16);
+                        if (!Character.isValidCodePoint(codepoint)) {
+                            throw error(
+                                "Invalid codepoint U+" +
+                                    Integer.toHexString(codepoint).toUpperCase(Locale.ROOT),
+                                digitCount
+                            );
+                        }
+                        tokenBuilder.appendCodePoint(codepoint);
+                    }
+                    default -> throw error("Unknown escape code \\" + escapeCode);
+                }
+                continue;
+            }
+            if (c == '\n' || c == EOF) {
+                throw error("Unterminated string literal");
+            }
+            tokenBuilder.append(c);
+        }
+        result.add(new Token.Str(tokenBuilder.toString(), getSourceLocation(column - startColumn + 1)));
+    }
+
+    private void handleNumber(List<Token> result, StringBuilder tokenBuilder, char firstChar) {
+        tokenBuilder.setLength(0);
+        throw new UnsupportedOperationException("Numbers not yet implemented");
+//        tokenBuilder.append(firstChar);
+    }
+
+    private TokenizeFailure error(String reason) {
+        return error(reason, 1);
+    }
+
+    private TokenizeFailure error(String reason, int length) {
+        return new TokenizeFailure(
+            reason, getSourceLocation(length),
+            GlangStringUtils.getLine(getSource(), line - 1)
+        );
+    }
+
+    private SourceLocation getSourceLocation() {
+        return new SourceLocation(line, column);
+    }
+
+    private SourceLocation getSourceLocation(int length) {
+        return new SourceLocation(line, column - length + 1, length);
+    }
+
+    private void reset() {
+        index = 0;
+        line = 1;
+        column = 0; // 0 means next() has never been called
+        wasNewLine = false;
+    }
+
+    private char peek() {
+        return index < source.length ? source[index] : EOF;
+    }
+
+    private char peek(int offset) {
+        if (offset < 0) {
+            throw new IllegalArgumentException("Cannot peek backwards. Use peekLast().");
+        }
+        return index + offset < source.length ? source[index + offset] : EOF;
+    }
+
+    private char peekLast() {
+        if (index == 0) {
+            throw new IllegalStateException("Cannot peekLast() at index 0");
+        }
+        return source[index - 1];
+    }
+
+    private char next() {
+        if (index >= source.length) {
+            if (!advancedPastEof) {
+                column++;
+                advancedPastEof = true;
+            }
+            return EOF;
+        }
+        if (wasNewLine) {
+            line++;
+            column = 0;
+            wasNewLine = false;
+        }
+        final char c = source[index++];
+        if (c == '\n') {
+            wasNewLine = true;
+        }
+        column++;
+        return c;
+    }
+
+    private void rewind(int n) {
+        if (n < 0) {
+            throw new IllegalArgumentException("Cannot rewind negative distance. Use skip().");
+        }
+        if (n > index) {
+            throw new IllegalStateException(
+                "Cannot rewind " + n + " chars, as that would be before the start of the source"
+            );
+        }
+        if (n > column) {
+            throw new IllegalStateException(
+                "Cannot rewind " + n + " chars, as that would be before the start of the current line"
+            );
+        }
+        index -= n;
+        column -= n;
+    }
+
+    private void skip(int n) {
+        if (n < 0) {
+            throw new IllegalArgumentException("Cannot skip negative distance. Use rewind().");
+        }
+        final int newIndex = Math.min(index + n, source.length);
+        for (int i = index; i < newIndex; i++) {
+            if (source[i] == '\n') {
+                line++;
+                column = 0;
+            } else {
+                column++;
+            }
+        }
+        index = newIndex;
+    }
+
+    private void skipFast(int n) {
+        if (n < 0) {
+            throw new IllegalArgumentException("Cannot skip negative distance. Use rewind().");
+        }
+        if (index + n > source.length) {
+            throw new IllegalArgumentException("Cannot skipFast past the end of the source.");
+        }
+        index += n;
+        column += n;
+    }
+}

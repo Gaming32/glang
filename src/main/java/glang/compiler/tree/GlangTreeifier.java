@@ -157,6 +157,7 @@ public class GlangTreeifier {
 
     // TODO: Specify source locations
     private ExpressionNode assignment() {
+        final SourceLocation startLocation = peek().getLocation();
         final ExpressionNode variable = or();
         if (check(TokenGroup.ASSIGNMENT)) {
             final TokenType operator = next().getType();
@@ -164,122 +165,145 @@ public class GlangTreeifier {
                 throw error(variable.getClass().getSimpleName() + " is not assignable");
             }
             final ExpressionNode value = assignment();
-            return new AssignmentExpression(variable, operator, value, SourceLocation.NULL, SourceLocation.NULL);
+            final SourceLocation endLocation = getSourceLocation();
+            return new AssignmentExpression(variable, operator, value, startLocation, endLocation);
         }
         return variable;
     }
 
     private ExpressionNode or() {
+        final SourceLocation startLocation = peek().getLocation();
         ExpressionNode left = and();
         while (match(TokenType.OR_OR)) {
             final ExpressionNode right = and();
-            left = new BinaryExpression(left, Operator.OR, right, SourceLocation.NULL, SourceLocation.NULL);
+            final SourceLocation endLocation = getSourceLocation();
+            left = new BinaryExpression(left, Operator.OR, right, startLocation, endLocation);
         }
         return left;
     }
 
     private ExpressionNode and() {
+        final SourceLocation startLocation = peek().getLocation();
         ExpressionNode left = comparison();
         while (match(TokenType.AND_AND)) {
             final ExpressionNode right = comparison();
-            left = new BinaryExpression(left, Operator.AND, right, SourceLocation.NULL, SourceLocation.NULL);
+            final SourceLocation endLocation = getSourceLocation();
+            left = new BinaryExpression(left, Operator.AND, right, startLocation, endLocation);
         }
         return left;
     }
 
     private ExpressionNode comparison() {
+        final SourceLocation startLocation = peek().getLocation();
         ExpressionNode left = bitwiseOr();
         while (check(TokenGroup.COMPARISON)) {
             final Operator operator = Operator.binary(next().getType());
             final ExpressionNode right = bitwiseOr();
-            left = new BinaryExpression(left, operator, right, SourceLocation.NULL, SourceLocation.NULL);
+            final SourceLocation endLocation = getSourceLocation();
+            left = new BinaryExpression(left, operator, right, startLocation, endLocation);
         }
         return left;
     }
 
     private ExpressionNode bitwiseOr() {
+        final SourceLocation startLocation = peek().getLocation();
         ExpressionNode left = bitwiseXor();
         while (match(TokenType.OR)) {
             final ExpressionNode right = bitwiseXor();
-            left = new BinaryExpression(left, Operator.BITWISE_OR, right, SourceLocation.NULL, SourceLocation.NULL);
+            final SourceLocation endLocation = getSourceLocation();
+            left = new BinaryExpression(left, Operator.BITWISE_OR, right, startLocation, endLocation);
         }
         return left;
     }
 
     private ExpressionNode bitwiseXor() {
+        final SourceLocation startLocation = peek().getLocation();
         ExpressionNode left = bitwiseAnd();
         while (match(TokenType.CARET)) {
             final ExpressionNode right = bitwiseAnd();
-            left = new BinaryExpression(left, Operator.BITWISE_XOR, right, SourceLocation.NULL, SourceLocation.NULL);
+            final SourceLocation endLocation = getSourceLocation();
+            left = new BinaryExpression(left, Operator.BITWISE_XOR, right, startLocation, endLocation);
         }
         return left;
     }
 
     private ExpressionNode bitwiseAnd() {
+        final SourceLocation startLocation = peek().getLocation();
         ExpressionNode left = bitShift();
         while (match(TokenType.AND)) {
             final ExpressionNode right = bitShift();
-            left = new BinaryExpression(left, Operator.BITWISE_AND, right, SourceLocation.NULL, SourceLocation.NULL);
+            final SourceLocation endLocation = getSourceLocation();
+            left = new BinaryExpression(left, Operator.BITWISE_AND, right, startLocation, endLocation);
         }
         return left;
     }
 
     private ExpressionNode bitShift() {
+        final SourceLocation startLocation = peek().getLocation();
         ExpressionNode left = term();
         while (check(TokenGroup.BIT_SHIFT)) {
             final Operator operator = Operator.binary(next().getType());
             final ExpressionNode right = term();
-            left = new BinaryExpression(left, operator, right, SourceLocation.NULL, SourceLocation.NULL);
+            final SourceLocation endLocation = getSourceLocation();
+            left = new BinaryExpression(left, operator, right, startLocation, endLocation);
         }
         return left;
     }
 
     private ExpressionNode term() {
+        final SourceLocation startLocation = peek().getLocation();
         ExpressionNode left = factor();
         while (check(TokenGroup.TERM)) {
             final Operator operator = Operator.binary(next().getType());
             final ExpressionNode right = factor();
-            left = new BinaryExpression(left, operator, right, SourceLocation.NULL, SourceLocation.NULL);
+            final SourceLocation endLocation = getSourceLocation();
+            left = new BinaryExpression(left, operator, right, startLocation, endLocation);
         }
         return left;
     }
 
     private ExpressionNode factor() {
+        final SourceLocation startLocation = peek().getLocation();
         ExpressionNode left = unary();
         if (check(TokenGroup.FACTOR)) {
             final Operator operator = Operator.binary(next().getType());
             final ExpressionNode right = unary();
-            left = new BinaryExpression(left, operator, right, SourceLocation.NULL, SourceLocation.NULL);
+            final SourceLocation endLocation = getSourceLocation();
+            left = new BinaryExpression(left, operator, right, startLocation, endLocation);
         }
         return left;
     }
 
     private ExpressionNode unary() {
+        final SourceLocation startLocation = peek().getLocation();
         if (check(TokenGroup.UNARY)) {
             final Operator operator = Operator.unary(next().getType());
             final ExpressionNode operand = unary();
-            return new UnaryExpression(operator, operand, SourceLocation.NULL, SourceLocation.NULL);
+            final SourceLocation endLocation = getSourceLocation();
+            return new UnaryExpression(operator, operand, startLocation, endLocation);
         }
         return call();
     }
 
     private ExpressionNode call() {
+        final SourceLocation startLocation = peek().getLocation();
         ExpressionNode target = primary();
         while (true) {
             if (match(TokenType.LPAREN)) {
-                target = finishCall(target);
+                target = finishCall(startLocation, target);
             } else if (match(TokenType.DOT)) {
                 final String member = ((Token.Identifier)expect(TokenType.IDENTIFIER)).getIdentifier();
-                target = new AccessExpression(target, member, SourceLocation.NULL, SourceLocation.NULL);
+                final SourceLocation endLocation = getSourceLocation();
+                target = new AccessExpression(target, member, startLocation, endLocation);
             } else {
                 return target;
             }
         }
     }
 
-    private CallExpression finishCall(ExpressionNode target) {
+    private CallExpression finishCall(SourceLocation startLocation, ExpressionNode target) {
         if (match(TokenType.RPAREN)) {
-            return new CallExpression(target, List.of(), SourceLocation.NULL, SourceLocation.NULL);
+            return new CallExpression(target, List.of(), startLocation, getSourceLocation());
         }
         final List<ExpressionNode> args = new ArrayList<>();
         while (true) {
@@ -291,7 +315,8 @@ public class GlangTreeifier {
         if (args.size() > 255) {
             throw error("Maximum number of args is 255. " + args.size() + " were passed");
         }
-        return new CallExpression(target, args, SourceLocation.NULL, SourceLocation.NULL);
+        final SourceLocation endLocation = getSourceLocation();
+        return new CallExpression(target, args, startLocation, endLocation);
     }
 
     private ExpressionNode primary() {

@@ -1,9 +1,5 @@
-import glang.compiler.token.GlangTokenizer;
-import glang.compiler.token.Token;
-import glang.compiler.token.TokenSourcePrinter;
-import glang.compiler.token.TokenizeFailure;
-
-import java.util.List;
+import glang.compiler.error.CompileFailedException;
+import glang.compiler.tree.GlangTreeifier;
 
 public class TestMain {
 
@@ -32,15 +28,22 @@ public class TestMain {
         """;
 
     public static void main(String[] args) {
-        final List<Token> tokens;
+//        final List<Token> tokens;
+//        try {
+//            tokens = GlangTokenizer.tokenize(SOURCE);
+//        } catch (TokenizeFailure e) {
+//            System.err.println(e.getMessage());
+//            return;
+//        }
+//        tokens.forEach(System.out::println);
+//        System.out.println();
+//        System.out.println();
+//        System.out.println(TokenSourcePrinter.print(tokens));
+
         try {
-            tokens = GlangTokenizer.tokenize(SOURCE);
-        } catch (TokenizeFailure e) {
+            System.out.println(GlangTreeifier.treeify(SOURCE));
+        } catch (CompileFailedException e) {
             System.err.println(e.getMessage());
-            return;
         }
-        System.out.println(tokens);
-        System.out.println();
-        System.out.println(TokenSourcePrinter.print(tokens));
     }
 }

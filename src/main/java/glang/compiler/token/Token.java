@@ -28,7 +28,7 @@ public abstract sealed class Token {
 
     @Override
     public final String toString() {
-        return "Token." + getClass().getSimpleName() + "[" + type + ": " + prettyPrint() + "]";
+        return "Token." + getClass().getSimpleName() + "[" + type.name() + ": " + prettyPrint() + "]";
     }
 
     public abstract String prettyPrint();

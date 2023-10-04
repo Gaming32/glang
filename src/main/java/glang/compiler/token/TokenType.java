@@ -69,6 +69,7 @@ public enum TokenType {
     IDENTIFIER(Token.Identifier.class),
     STRING(Token.Str.class),
     NUMBER(Token.Num.class),
+    EOF(false, "<<EOF>>")
     ;
 
     public static final SymbolMap<TokenType> SIMPLE_TOKENS = new SymbolMap<>();
@@ -76,7 +77,7 @@ public enum TokenType {
 
     static {
         for (final TokenType type : values()) {
-            if (type.tokenClass != Token.Basic.class) continue;
+            if (type.tokenClass != Token.Basic.class || type == EOF) continue;
             if (type.isKeyword) {
                 KEYWORDS.put(type.basicText, type);
             } else {
@@ -118,6 +119,11 @@ public enum TokenType {
 
     public String getBasicText() {
         return basicText;
+    }
+
+    @Override
+    public String toString() {
+        return tokenClass == Token.Basic.class ? basicText : name();
     }
 
     public static TokenType getSimple(String text) {

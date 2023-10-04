@@ -3,10 +3,10 @@ package glang.compiler.tree.statement;
 import glang.compiler.SourceLocation;
 import glang.compiler.tree.StatementList;
 
-public class BlockNode extends StatementNode {
+public class BlockStatement extends StatementNode {
     private final StatementList statements;
 
-    public BlockNode(
+    public BlockStatement(
         StatementList statements,
         SourceLocation startLocation, SourceLocation endLocation
     ) {

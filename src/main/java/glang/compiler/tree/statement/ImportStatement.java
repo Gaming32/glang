@@ -31,6 +31,6 @@ public class ImportStatement extends StatementNode {
         for (final String part : parentPath) {
             result.append(part).append('.');
         }
-        return result.append(target).append(';');
+        return result.append(target);
     }
 }

@@ -21,6 +21,6 @@ public class ExpressionStatement extends StatementNode {
     @Override
     public StringBuilder print(StringBuilder result, int currentIndent, int indent) {
         expression.print(result, currentIndent, indent);
-        return result.append(';');
+        return result;
     }
 }

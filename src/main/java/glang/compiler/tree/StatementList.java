@@ -25,14 +25,16 @@ public class StatementList extends ASTNode {
         if (statements.isEmpty()) {
             return result;
         }
+        Class<? extends StatementNode> currentType = statements.get(0).getClass();
         statements.get(0).print(result, currentIndent, indent);
         for (int i = 1; i < statements.size(); i++) {
-            result.append(" ".repeat(currentIndent));
+            final StatementNode statement = statements.get(i);
+            if (statement.getClass() != currentType) {
+                currentType = statement.getClass();
+                result.append('\n');
+            }
+            result.append('\n').append(" ".repeat(currentIndent));
             statements.get(i).print(result, currentIndent, indent);
-            result.append('\n');
-        }
-        if (statements.size() > 1) {
-            result.setLength(result.length() - 1);
         }
         return result;
     }

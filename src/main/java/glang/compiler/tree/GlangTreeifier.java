@@ -131,11 +131,10 @@ public class GlangTreeifier {
         expect(TokenType.IMPORT);
         final SourceLocation startLocation = getSourceLocation();
         final List<String> parts = new ArrayList<>();
-        while (true) {
+        do {
             parts.add(((Token.Identifier)expect(TokenType.IDENTIFIER)).getIdentifier());
-            if (check(TokenType.SEMI)) break;
-            expect(TokenType.DOT);
-        }
+        } while (match(TokenType.DOT));
+        endOfStatement();
         final SourceLocation endLocation = getSourceLocation();
         return new ImportStatement(
             parts.subList(0, parts.size() - 1), parts.get(parts.size() - 1),
@@ -146,9 +145,20 @@ public class GlangTreeifier {
     private ExpressionStatement expressionStatement() {
         final SourceLocation startLocation = peek().getLocation();
         final ExpressionNode expression = expression();
-        expect(TokenType.SEMI);
+        endOfStatement();
         final SourceLocation endLocation = getSourceLocation();
         return new ExpressionStatement(expression, startLocation, endLocation);
+    }
+
+    private void endOfStatement() {
+        if (
+            !match(TokenType.SEMI) && !check(TokenType.RCURLY) && !check(TokenType.EOF) &&
+                peek().getLocation().line() == last().getLocation().line()
+        ) {
+            next();
+            errorSafe("Multiple statements on one line should be separated with a semicolon");
+            rewind(1);
+        }
     }
 
     private ExpressionNode expression() {

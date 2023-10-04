@@ -19,10 +19,9 @@ import java.util.Set;
 import java.util.function.IntFunction;
 
 public class GlangTreeifier {
-    private static final Token EOF = new Token.Basic(TokenType.EOF, SourceLocation.NULL);
-
     private final Token[] tokens;
     private final IntFunction<String> lineGetter;
+    private final Token eof;
 
     private int index;
     private ErrorCollector errorCollector = new ErrorCollector();
@@ -30,6 +29,9 @@ public class GlangTreeifier {
     public GlangTreeifier(List<Token> tokens, IntFunction<String> lineGetter) {
         this.tokens = tokens.toArray(Token[]::new);
         this.lineGetter = lineGetter;
+
+        final SourceLocation end = this.tokens[this.tokens.length - 1].getLocation();
+        this.eof = new Token.Basic(TokenType.EOF, new SourceLocation(end.line(), end.column() + end.length()));
     }
 
     public GlangTreeifier(String source) throws TokenizeFailure {
@@ -371,14 +373,14 @@ public class GlangTreeifier {
     }
 
     private Token peek() {
-        return index < tokens.length ? tokens[index] : EOF;
+        return index < tokens.length ? tokens[index] : eof;
     }
 
     private Token peek(int offset) {
         if (offset < 0) {
             throw new IllegalArgumentException("Cannot peek backwards. Use peekLast().");
         }
-        return index + offset < tokens.length ? tokens[index + offset] : EOF;
+        return index + offset < tokens.length ? tokens[index + offset] : eof;
     }
 
     public Token last() {
@@ -390,7 +392,7 @@ public class GlangTreeifier {
 
     private Token next() {
         if (index >= tokens.length) {
-            return EOF;
+            return eof;
         }
         return tokens[index++];
     }

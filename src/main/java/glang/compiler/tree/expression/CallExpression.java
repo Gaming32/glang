@@ -4,11 +4,11 @@ import glang.compiler.SourceLocation;
 
 import java.util.List;
 
-public class InvokeExpression extends ExpressionNode {
+public class CallExpression extends ExpressionNode {
     private final ExpressionNode target;
     private final List<ExpressionNode> args;
 
-    public InvokeExpression(
+    public CallExpression(
         ExpressionNode target, List<ExpressionNode> args,
         SourceLocation startLocation, SourceLocation endLocation
     ) {
@@ -27,9 +27,8 @@ public class InvokeExpression extends ExpressionNode {
 
     @Override
     public StringBuilder print(StringBuilder result, int currentIndent, int indent) {
-        result.append('(');
         target.print(result, currentIndent, indent);
-        result.append(")(");
+        result.append('(');
         if (!args.isEmpty()) {
             args.get(0).print(result, currentIndent, indent);
             for (int i = 1; i < args.size(); i++) {

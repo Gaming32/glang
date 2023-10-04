@@ -331,7 +331,7 @@ public final class GlangTokenizer {
         return index + offset < source.length ? source[index + offset] : EOF;
     }
 
-    private char peekLast() {
+    private char last() {
         if (index == 0) {
             throw new IllegalStateException("Cannot peekLast() at index 0");
         }

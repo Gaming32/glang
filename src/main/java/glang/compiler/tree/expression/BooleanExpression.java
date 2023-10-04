@@ -2,23 +2,13 @@ package glang.compiler.tree.expression;
 
 import glang.compiler.SourceLocation;
 
-public class BooleanExpression extends ExpressionNode {
-    private final boolean value;
-
-    public BooleanExpression(
-        boolean value,
-        SourceLocation startLocation, SourceLocation endLocation
-    ) {
-        super(startLocation, endLocation);
-        this.value = value;
-    }
-
-    public boolean getValue() {
-        return value;
+public class BooleanExpression extends LiteralExpression<Boolean> {
+    public BooleanExpression(boolean value, SourceLocation location) {
+        super(value, location);
     }
 
     @Override
     public StringBuilder print(StringBuilder result, int currentIndent, int indent) {
-        return result.append(value);
+        return result.append(getValue());
     }
 }

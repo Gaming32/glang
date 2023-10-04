@@ -1,21 +1,20 @@
 package glang.compiler.tree.expression;
 
 import glang.compiler.SourceLocation;
-import glang.compiler.token.Token;
-import glang.compiler.token.TokenType;
+import glang.compiler.tree.Operator;
 
 public class BinaryExpression extends ExpressionNode {
     private final ExpressionNode left;
-    private final TokenType operator;
+    private final Operator operator;
     private final ExpressionNode right;
 
     public BinaryExpression(
-        ExpressionNode left, TokenType operator, ExpressionNode right,
+        ExpressionNode left, Operator operator, ExpressionNode right,
         SourceLocation startLocation, SourceLocation endLocation
     ) {
         super(startLocation, endLocation);
-        if (operator.getTokenClass() != Token.Basic.class || operator.isKeyword()) {
-            throw new IllegalArgumentException("Operator must be simple token, was " + operator);
+        if (!operator.isBinary()) {
+            throw new IllegalArgumentException("Operator must be binary, was " + operator);
         }
         this.left = left;
         this.operator = operator;
@@ -26,7 +25,7 @@ public class BinaryExpression extends ExpressionNode {
         return left;
     }
 
-    public TokenType getOperator() {
+    public Operator getOperator() {
         return operator;
     }
 
@@ -38,7 +37,7 @@ public class BinaryExpression extends ExpressionNode {
     public StringBuilder print(StringBuilder result, int currentIndent, int indent) {
         result.append('(');
         left.print(result, currentIndent, indent);
-        result.append(") ").append(operator.getBasicText()).append(" (");
+        result.append(") ").append(operator).append(" (");
         right.print(result, currentIndent, indent);
         return result.append(')');
     }

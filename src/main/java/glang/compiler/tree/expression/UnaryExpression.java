@@ -1,26 +1,25 @@
 package glang.compiler.tree.expression;
 
 import glang.compiler.SourceLocation;
-import glang.compiler.token.Token;
-import glang.compiler.token.TokenType;
+import glang.compiler.tree.Operator;
 
 public class UnaryExpression extends ExpressionNode {
-    private final TokenType operator;
+    private final Operator operator;
     private final ExpressionNode operand;
 
     public UnaryExpression(
-        TokenType operator, ExpressionNode operand,
+        Operator operator, ExpressionNode operand,
         SourceLocation startLocation, SourceLocation endLocation
     ) {
         super(startLocation, endLocation);
-        if (operator.getTokenClass() != Token.Basic.class || operator.isKeyword()) {
-            throw new IllegalArgumentException("Operator must be simple token, was " + operator);
+        if (operator.isBinary()) {
+            throw new IllegalArgumentException("Operator must be unary, was " + operator);
         }
         this.operator = operator;
         this.operand = operand;
     }
 
-    public TokenType getOperator() {
+    public Operator getOperator() {
         return operator;
     }
 
@@ -30,7 +29,7 @@ public class UnaryExpression extends ExpressionNode {
 
     @Override
     public StringBuilder print(StringBuilder result, int currentIndent, int indent) {
-        result.append(operator.getBasicText());
+        result.append(operator);
         operand.print(result, currentIndent, indent);
         return result;
     }

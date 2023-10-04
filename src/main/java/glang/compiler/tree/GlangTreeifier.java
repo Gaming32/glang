@@ -3,20 +3,23 @@ package glang.compiler.tree;
 import glang.compiler.SourceLocation;
 import glang.compiler.error.CompileFailedException;
 import glang.compiler.error.ErrorCollector;
-import glang.compiler.token.GlangTokenizer;
-import glang.compiler.token.Token;
-import glang.compiler.token.TokenType;
-import glang.compiler.token.TokenizeFailure;
+import glang.compiler.token.*;
+import glang.compiler.tree.expression.*;
 import glang.compiler.tree.statement.BlockStatement;
+import glang.compiler.tree.statement.ExpressionStatement;
+import glang.compiler.tree.statement.ImportStatement;
 import glang.compiler.tree.statement.StatementNode;
 import glang.util.GlangStringUtils;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.function.IntFunction;
 
 public class GlangTreeifier {
-    private static final Token EOF = new Token.Basic(TokenType.EOF, new SourceLocation(1, 1));
+    private static final Token EOF = new Token.Basic(TokenType.EOF, SourceLocation.NULL);
 
     private final Token[] tokens;
     private final IntFunction<String> lineGetter;
@@ -42,21 +45,24 @@ public class GlangTreeifier {
     }
 
     public StatementList treeify() throws CompileFailedException {
-        reset();
+        reset(null);
         final StatementList result = statementList(TokenType.EOF);
         errorCollector.throwIfFailed();
         return result;
     }
 
-    public void reset() {
-        index = 0;
-        if (!errorCollector.getErrors().isEmpty()) {
-            errorCollector = new ErrorCollector();
-        }
+    public StatementList treeify(ErrorCollector errorCollector) {
+        reset(errorCollector);
+        return statementList(TokenType.EOF);
     }
 
-    public ErrorCollector getErrorCollector() {
-        return errorCollector;
+    public void reset(ErrorCollector newErrorCollector) {
+        index = 0;
+        if (newErrorCollector != null) {
+            errorCollector = newErrorCollector;
+        } else if (!errorCollector.getErrors().isEmpty()) {
+            errorCollector = new ErrorCollector();
+        }
     }
 
     public StatementList statementList(TokenType end) {
@@ -68,7 +74,7 @@ public class GlangTreeifier {
                 firstLocation = peek().getLocation();
             }
             final StatementNode statement = statement();
-            lastLocation = peekLast().getLocation();
+            lastLocation = last().getLocation();
             if (statement != null) {
                 statements.add(statement);
             }
@@ -80,7 +86,7 @@ public class GlangTreeifier {
     }
 
     public BlockStatement block() {
-        if (!expectSafe(TokenType.LCURLY)) {
+        if (expectSafe(TokenType.LCURLY) == null) {
             final SourceLocation location = getSourceLocation();
             return new BlockStatement(new StatementList(List.of(), location, location), location, location);
         }
@@ -88,7 +94,7 @@ public class GlangTreeifier {
         final SourceLocation startLocation = getSourceLocation();
         final StatementList statements = statementList(TokenType.RCURLY);
         if (!check(TokenType.RCURLY)) {
-            errorSafe("Unterminated block. Expected }.");
+            throw error("Unterminated block. Expected }.");
         }
         final SourceLocation endLocation = getSourceLocation();
 
@@ -111,29 +117,246 @@ public class GlangTreeifier {
     }
 
     private StatementNode statement0() {
-        throw SkipStatement.INSTANCE; // TODO
+        if (check(TokenType.IMPORT)) {
+            return importStatement();
+        }
+        if (check(TokenType.LCURLY)) {
+            return block();
+        }
+        return expressionStatement();
+    }
+
+    private ImportStatement importStatement() {
+        expect(TokenType.IMPORT);
+        final SourceLocation startLocation = getSourceLocation();
+        final List<String> parts = new ArrayList<>();
+        while (true) {
+            parts.add(((Token.Identifier)expect(TokenType.IDENTIFIER)).getIdentifier());
+            if (check(TokenType.SEMI)) break;
+            expect(TokenType.DOT);
+        }
+        final SourceLocation endLocation = getSourceLocation();
+        return new ImportStatement(
+            parts.subList(0, parts.size() - 1), parts.get(parts.size() - 1),
+            startLocation, endLocation
+        );
+    }
+
+    private ExpressionStatement expressionStatement() {
+        final SourceLocation startLocation = peek().getLocation();
+        final ExpressionNode expression = expression();
+        expect(TokenType.SEMI);
+        final SourceLocation endLocation = getSourceLocation();
+        return new ExpressionStatement(expression, startLocation, endLocation);
+    }
+
+    private ExpressionNode expression() {
+        return assignment();
+    }
+
+    // TODO: Specify source locations
+    private ExpressionNode assignment() {
+        final ExpressionNode variable = or();
+        if (check(TokenGroup.ASSIGNMENT)) {
+            final TokenType operator = next().getType();
+            if (!(variable instanceof AssignableExpression)) {
+                throw error(variable.getClass().getSimpleName() + " is not assignable");
+            }
+            final ExpressionNode value = assignment();
+            return new AssignmentExpression(variable, operator, value, SourceLocation.NULL, SourceLocation.NULL);
+        }
+        return variable;
+    }
+
+    private ExpressionNode or() {
+        ExpressionNode left = and();
+        while (match(TokenType.OR_OR)) {
+            final ExpressionNode right = and();
+            left = new BinaryExpression(left, Operator.OR, right, SourceLocation.NULL, SourceLocation.NULL);
+        }
+        return left;
+    }
+
+    private ExpressionNode and() {
+        ExpressionNode left = comparison();
+        while (match(TokenType.AND_AND)) {
+            final ExpressionNode right = comparison();
+            left = new BinaryExpression(left, Operator.AND, right, SourceLocation.NULL, SourceLocation.NULL);
+        }
+        return left;
+    }
+
+    private ExpressionNode comparison() {
+        ExpressionNode left = bitwiseOr();
+        while (check(TokenGroup.COMPARISON)) {
+            final Operator operator = Operator.binary(next().getType());
+            final ExpressionNode right = bitwiseOr();
+            left = new BinaryExpression(left, operator, right, SourceLocation.NULL, SourceLocation.NULL);
+        }
+        return left;
+    }
+
+    private ExpressionNode bitwiseOr() {
+        ExpressionNode left = bitwiseXor();
+        while (match(TokenType.OR)) {
+            final ExpressionNode right = bitwiseXor();
+            left = new BinaryExpression(left, Operator.BITWISE_OR, right, SourceLocation.NULL, SourceLocation.NULL);
+        }
+        return left;
+    }
+
+    private ExpressionNode bitwiseXor() {
+        ExpressionNode left = bitwiseAnd();
+        while (match(TokenType.CARET)) {
+            final ExpressionNode right = bitwiseAnd();
+            left = new BinaryExpression(left, Operator.BITWISE_XOR, right, SourceLocation.NULL, SourceLocation.NULL);
+        }
+        return left;
+    }
+
+    private ExpressionNode bitwiseAnd() {
+        ExpressionNode left = bitShift();
+        while (match(TokenType.AND)) {
+            final ExpressionNode right = bitShift();
+            left = new BinaryExpression(left, Operator.BITWISE_AND, right, SourceLocation.NULL, SourceLocation.NULL);
+        }
+        return left;
+    }
+
+    private ExpressionNode bitShift() {
+        ExpressionNode left = term();
+        while (check(TokenGroup.BIT_SHIFT)) {
+            final Operator operator = Operator.binary(next().getType());
+            final ExpressionNode right = term();
+            left = new BinaryExpression(left, operator, right, SourceLocation.NULL, SourceLocation.NULL);
+        }
+        return left;
+    }
+
+    private ExpressionNode term() {
+        ExpressionNode left = factor();
+        while (check(TokenGroup.TERM)) {
+            final Operator operator = Operator.binary(next().getType());
+            final ExpressionNode right = factor();
+            left = new BinaryExpression(left, operator, right, SourceLocation.NULL, SourceLocation.NULL);
+        }
+        return left;
+    }
+
+    private ExpressionNode factor() {
+        ExpressionNode left = unary();
+        if (check(TokenGroup.FACTOR)) {
+            final Operator operator = Operator.binary(next().getType());
+            final ExpressionNode right = unary();
+            left = new BinaryExpression(left, operator, right, SourceLocation.NULL, SourceLocation.NULL);
+        }
+        return left;
+    }
+
+    private ExpressionNode unary() {
+        if (check(TokenGroup.UNARY)) {
+            final Operator operator = Operator.unary(next().getType());
+            final ExpressionNode operand = unary();
+            return new UnaryExpression(operator, operand, SourceLocation.NULL, SourceLocation.NULL);
+        }
+        return call();
+    }
+
+    private ExpressionNode call() {
+        ExpressionNode target = primary();
+        while (true) {
+            if (match(TokenType.LPAREN)) {
+                target = finishCall(target);
+            } else if (match(TokenType.DOT)) {
+                final String member = ((Token.Identifier)expect(TokenType.IDENTIFIER)).getIdentifier();
+                target = new AccessExpression(target, member, SourceLocation.NULL, SourceLocation.NULL);
+            } else {
+                return target;
+            }
+        }
+    }
+
+    private CallExpression finishCall(ExpressionNode target) {
+        if (match(TokenType.RPAREN)) {
+            return new CallExpression(target, List.of(), SourceLocation.NULL, SourceLocation.NULL);
+        }
+        final List<ExpressionNode> args = new ArrayList<>();
+        while (true) {
+            final ExpressionNode arg = expression();
+            args.add(arg);
+            if (match(TokenType.RPAREN)) break;
+            expect(TokenType.COMMA);
+        }
+        if (args.size() > 255) {
+            throw error("Maximum number of args is 255. " + args.size() + " were passed.");
+        }
+        return new CallExpression(target, args, SourceLocation.NULL, SourceLocation.NULL);
+    }
+
+    private ExpressionNode primary() {
+        if (match(TokenType.TRUE)) {
+            return new BooleanExpression(true, getSourceLocation());
+        }
+        if (match(TokenType.FALSE)) {
+            return new BooleanExpression(false, getSourceLocation());
+        }
+        if (match(TokenType.NULL)) {
+            return new NullExpression(getSourceLocation());
+        }
+        if (check(TokenType.IDENTIFIER)) {
+            return new IdentifierExpression(((Token.Identifier)next()).getIdentifier(), getSourceLocation());
+        }
+        if (check(TokenType.STRING)) {
+            return new StringExpression(((Token.Str)next()).getValue(), getSourceLocation());
+        }
+        if (check(TokenType.NUMBER)) {
+            return new NumberExpression(((Token.Num)next()).getValue(), getSourceLocation());
+        }
+        if (match(TokenType.LPAREN)) {
+            final ExpressionNode result = expression();
+            expect(TokenType.RPAREN);
+            return result;
+        }
+        throw error("Expected expression, found " + next());
     }
 
     private boolean check(TokenType tokenType) {
         return peek().getType() == tokenType;
     }
 
-    private void expect(TokenType tokenType) {
-        if (!expectSafe(tokenType)) {
+    private boolean check(Set<TokenType> tokenTypes) {
+        return tokenTypes.contains(peek().getType());
+    }
+
+    private boolean match(TokenType tokenType) {
+        if (check(tokenType)) {
+            next();
+            return true;
+        }
+        return false;
+    }
+
+    @NotNull
+    private <T extends Token> T expect(TokenType tokenType) {
+        final T result = expectSafe(tokenType);
+        if (result == null) {
             throw SkipStatement.INSTANCE;
         }
+        return result;
     }
 
-    private boolean expectSafe(TokenType tokenType) {
+    @Nullable
+    @SuppressWarnings("unchecked")
+    private <T extends Token> T expectSafe(TokenType tokenType) {
         final Token next = next();
         if (next.getType() != tokenType) {
-            errorSafe("Expected " + tokenType + ", found " + next.prettyPrint());
-            return false;
+            errorSafe("Expected '" + tokenType + "', found '" + next.prettyPrint() + "'");
+            return null;
         }
-        return true;
+        return (T)next;
     }
 
-    private void error(String reason) {
+    private SkipStatement error(String reason) {
         errorSafe(reason);
         throw SkipStatement.INSTANCE;
     }
@@ -144,7 +367,7 @@ public class GlangTreeifier {
     }
 
     private SourceLocation getSourceLocation() {
-        return peekLast().getLocation();
+        return last().getLocation();
     }
 
     private Token peek() {
@@ -158,7 +381,7 @@ public class GlangTreeifier {
         return index + offset < tokens.length ? tokens[index + offset] : EOF;
     }
 
-    public Token peekLast() {
+    public Token last() {
         if (index == 0) {
             throw new IllegalArgumentException("Cannot peekLast() at index 0");
         }

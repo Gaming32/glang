@@ -24,13 +24,13 @@ public abstract class ASTNode {
     @Contract("_, _, _ -> param1")
     public abstract StringBuilder print(StringBuilder result, int currentIndent, int indent);
 
-    public final String print(int indent) {
+    public final String toString(int indent) {
         return print(new StringBuilder(), 0, indent).toString();
     }
 
     @Override
     public final String toString() {
-        return print(0);
+        return toString(0);
     }
 
     @Nullable

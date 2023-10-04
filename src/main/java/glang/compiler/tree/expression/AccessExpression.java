@@ -3,21 +3,21 @@ package glang.compiler.tree.expression;
 import glang.compiler.SourceLocation;
 import glang.compiler.token.Token;
 
-public class AccessExpression extends ExpressionNode {
-    private final ExpressionNode parent;
+public class AccessExpression extends ExpressionNode implements AssignableExpression {
+    private final ExpressionNode target;
     private final String member;
 
     public AccessExpression(
-        ExpressionNode parent, String member,
+        ExpressionNode target, String member,
         SourceLocation startLocation, SourceLocation endLocation
     ) {
         super(startLocation, endLocation);
-        this.parent = parent;
+        this.target = target;
         this.member = member;
     }
 
-    public ExpressionNode getParent() {
-        return parent;
+    public ExpressionNode getTarget() {
+        return target;
     }
 
     public String getMember() {
@@ -27,7 +27,7 @@ public class AccessExpression extends ExpressionNode {
     @Override
     public StringBuilder print(StringBuilder result, int currentIndent, int indent) {
         result.append('(');
-        parent.print(result, currentIndent, indent);
+        target.print(result, currentIndent, indent);
         return result.append(").").append(Token.Identifier.prettyPrint(member));
     }
 }

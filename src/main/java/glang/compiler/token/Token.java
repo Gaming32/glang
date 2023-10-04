@@ -58,6 +58,10 @@ public abstract sealed class Token {
 
         @Override
         public String prettyPrint() {
+            return prettyPrint(identifier);
+        }
+
+        public static String prettyPrint(String identifier) {
             if (identifier.isEmpty()) {
                 return "``";
             }
@@ -87,6 +91,10 @@ public abstract sealed class Token {
 
         @Override
         public String prettyPrint() {
+            return prettyPrint(value);
+        }
+
+        public static String prettyPrint(String value) {
             if (value.indexOf('"') >= 0) {
                 return '\'' + GlangStringUtils.escape(value, "'") + '\'';
             }

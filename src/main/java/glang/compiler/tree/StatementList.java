@@ -16,12 +16,23 @@ public class StatementList extends ASTNode {
         this.statements = List.copyOf(statements);
     }
 
+    public List<StatementNode> getStatements() {
+        return statements;
+    }
+
     @Override
     public StringBuilder print(StringBuilder result, int currentIndent, int indent) {
-        for (final StatementNode node : statements) {
+        if (statements.isEmpty()) {
+            return result;
+        }
+        statements.get(0).print(result, currentIndent, indent);
+        for (int i = 1; i < statements.size(); i++) {
             result.append(" ".repeat(currentIndent));
-            node.print(result, currentIndent, indent);
+            statements.get(i).print(result, currentIndent, indent);
             result.append('\n');
+        }
+        if (statements.size() > 1) {
+            result.setLength(result.length() - 1);
         }
         return result;
     }

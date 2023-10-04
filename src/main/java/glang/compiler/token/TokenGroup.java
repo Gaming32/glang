@@ -12,4 +12,5 @@ public class TokenGroup {
     public static final Set<TokenType> TERM = EnumSet.of(PLUS, MINUS);
     public static final Set<TokenType> FACTOR = EnumSet.of(STAR, SLASH, PERCENT);
     public static final Set<TokenType> UNARY = EnumSet.of(BANG, PLUS, MINUS, TILDE);
+    public static final Set<TokenType> SAVEPOINT = EnumSet.of(SEMI, RCURLY, EOF);
 }

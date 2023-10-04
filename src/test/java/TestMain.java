@@ -17,14 +17,16 @@ public class TestMain {
         // println(0b101);
         // println(010);
         
-        println("Hello, world!"); // Comment!
-        println("a, b\\n\\f\\U0001f60a".escapeGlang(false));
-        /*
-            Block comment
-         */
-            a == b;
-        // a >>>= b;
-        println(`%*\\\\\\``);
+        // println("Hello, world!"); // Comment!
+        // println("a, b\\n\\f\\U0001f60a".escapeGlang(false));
+        // /*
+        //     Block comment
+        //  */
+        //     a == b;
+        // // a >>>= b;
+        // println(`%*\\\\\\``);
+        
+        { println("hi"); }
         """;
 
     public static void main(String[] args) {

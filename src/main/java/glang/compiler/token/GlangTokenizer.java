@@ -76,21 +76,29 @@ public final class GlangTokenizer {
                     break;
                 }
                 case '/': {
-                    final char peeked = peek();
+                    char peeked = peek();
                     if (peeked == '/') {
                         next();
-                        //noinspection StatementWithEmptyBody
-                        while (next() != '\n') {
-                            // Intentionally empty
-                        }
+                        do {
+                            peeked = next();
+                        } while (peeked != '\n' && peeked != EOF);
                         continue;
                     }
                     if (peeked == '*') {
                         next();
+                        final int startIndex = index;
+                        final int startLine = line;
+                        final int startColumn = column;
                         while (true) {
-                            if (next() == '*' && peek() == '/') {
+                            peeked = next();
+                            if (peeked == '*' && peek() == '/') {
                                 next();
                                 break;
+                            } else if (peeked == EOF) {
+                                index = startIndex;
+                                line = startLine;
+                                column = startColumn;
+                                throw error("Unterminated /*", 2);
                             }
                         }
                         continue;

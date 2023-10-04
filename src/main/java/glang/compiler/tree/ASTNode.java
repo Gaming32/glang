@@ -30,7 +30,7 @@ public abstract class ASTNode {
 
     @Override
     public final String toString() {
-        return toString(0);
+        return toString(4);
     }
 
     @Nullable

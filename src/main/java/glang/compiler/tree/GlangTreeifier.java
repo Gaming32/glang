@@ -30,8 +30,12 @@ public class GlangTreeifier {
         this.tokens = tokens.toArray(Token[]::new);
         this.lineGetter = lineGetter;
 
-        final SourceLocation end = this.tokens[this.tokens.length - 1].getLocation();
-        this.eof = new Token.Basic(TokenType.EOF, new SourceLocation(end.line(), end.column() + end.length()));
+        if (!tokens.isEmpty()) {
+            final SourceLocation end = this.tokens[this.tokens.length - 1].getLocation();
+            this.eof = new Token.Basic(TokenType.EOF, new SourceLocation(end.line(), end.column() + end.length()));
+        } else {
+            this.eof = new Token.Basic(TokenType.EOF, SourceLocation.NULL);
+        }
     }
 
     public GlangTreeifier(String source) throws TokenizeFailure {
@@ -69,22 +73,17 @@ public class GlangTreeifier {
 
     public StatementList statementList(TokenType end) {
         final List<StatementNode> statements = new ArrayList<>();
-        SourceLocation firstLocation = null;
-        SourceLocation lastLocation = null;
+        final SourceLocation startLocation = peek().getLocation();
+        boolean foundAny = false;
         while (!check(end) && !check(TokenType.EOF)) {
-            if (firstLocation == null) {
-                firstLocation = peek().getLocation();
-            }
+            foundAny = true;
             final StatementNode statement = statement();
-            lastLocation = last().getLocation();
             if (statement != null) {
                 statements.add(statement);
             }
         }
-        if (firstLocation == null || lastLocation == null) {
-            firstLocation = lastLocation = peek().getLocation();
-        }
-        return new StatementList(statements, firstLocation, lastLocation);
+        final SourceLocation endLocation = foundAny ? getSourceLocation() : startLocation;
+        return new StatementList(statements, startLocation, endLocation);
     }
 
     public BlockStatement block() {
@@ -95,9 +94,7 @@ public class GlangTreeifier {
 
         final SourceLocation startLocation = getSourceLocation();
         final StatementList statements = statementList(TokenType.RCURLY);
-        if (!check(TokenType.RCURLY)) {
-            throw error("Unterminated block. Expected }.");
-        }
+        expect(TokenType.RCURLY);
         final SourceLocation endLocation = getSourceLocation();
 
         return new BlockStatement(statements, startLocation, endLocation);
@@ -110,10 +107,12 @@ public class GlangTreeifier {
         try {
             return statement0();
         } catch (SkipStatement e) {
-            while (!check(TokenType.SEMI) && !check(TokenType.EOF)) {
+            while (!check(TokenGroup.SAVEPOINT)) {
                 next();
             }
-            next();
+            if (!check(TokenType.RCURLY)) {
+                next();
+            }
             return null;
         }
     }
@@ -290,7 +289,7 @@ public class GlangTreeifier {
             expect(TokenType.COMMA);
         }
         if (args.size() > 255) {
-            throw error("Maximum number of args is 255. " + args.size() + " were passed.");
+            throw error("Maximum number of args is 255. " + args.size() + " were passed");
         }
         return new CallExpression(target, args, SourceLocation.NULL, SourceLocation.NULL);
     }
@@ -319,7 +318,7 @@ public class GlangTreeifier {
             expect(TokenType.RPAREN);
             return result;
         }
-        throw error("Expected expression, found " + next());
+        throw error("Expected expression, found " + next().prettyPrint());
     }
 
     private boolean check(TokenType tokenType) {

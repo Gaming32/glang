@@ -20,8 +20,12 @@ public class BlockStatement extends StatementNode {
 
     @Override
     public StringBuilder print(StringBuilder result, int currentIndent, int indent) {
-        result.append("{\n");
-        statements.print(result, currentIndent + indent, indent);
-        return result.append(" ".repeat(currentIndent)).append('}');
+        if (statements.getStatements().isEmpty()) {
+            return result.append("{}");
+        }
+        final int newIndent = currentIndent + indent;
+        result.append("{\n").append(" ".repeat(newIndent));
+        statements.print(result, newIndent, indent);
+        return result.append('\n').append(" ".repeat(currentIndent)).append('}');
     }
 }

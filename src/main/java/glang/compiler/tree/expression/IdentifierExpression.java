@@ -9,7 +9,7 @@ public class IdentifierExpression extends LiteralExpression<String> implements A
     }
 
     @Override
-    public StringBuilder print(StringBuilder result, int currentIndent, int indent) {
-        return result.append(Token.Identifier.prettyPrint(getValue()));
+    public String toString() {
+        return Token.Identifier.prettyPrint(getValue());
     }
 }

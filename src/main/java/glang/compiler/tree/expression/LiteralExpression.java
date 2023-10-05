@@ -19,4 +19,21 @@ public abstract class LiteralExpression<T> extends ExpressionNode {
     public SourceLocation getLocation() {
         return location;
     }
+
+    @Override
+    public StringBuilder print(StringBuilder result, int currentIndent, int indent) {
+        return result.append(this);
+    }
+
+    @Override
+    public String toString(int indent) {
+        return toString();
+    }
+
+    public abstract String toString();
+
+    @Override
+    public SourceLocation singleLineLocation() {
+        return location;
+    }
 }

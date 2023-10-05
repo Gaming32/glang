@@ -24,17 +24,17 @@ public abstract class ASTNode {
     @Contract("_, _, _ -> param1")
     public abstract StringBuilder print(StringBuilder result, int currentIndent, int indent);
 
-    public final String toString(int indent) {
+    public String toString(int indent) {
         return print(new StringBuilder(), 0, indent).toString();
     }
 
     @Override
-    public final String toString() {
+    public String toString() {
         return toString(4);
     }
 
     @Nullable
-    public final SourceLocation singleLineLocation() {
+    public SourceLocation singleLineLocation() {
         if (startLocation.line() != endLocation.line()) {
             return null;
         }

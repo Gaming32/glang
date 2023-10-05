@@ -8,7 +8,7 @@ public class NumberExpression extends LiteralExpression<Number> {
     }
 
     @Override
-    public StringBuilder print(StringBuilder result, int currentIndent, int indent) {
-        return result.append(getValue());
+    public String toString() {
+        return getValue().toString();
     }
 }

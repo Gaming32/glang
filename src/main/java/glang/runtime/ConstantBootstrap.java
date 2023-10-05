@@ -11,11 +11,11 @@ public final class ConstantBootstrap {
         return value;
     }
 
-    public static Long longWrapper(MethodHandles.Lookup lookup, String name, Class<Long> type, long value) {
+    public static Double doubleWrapper(MethodHandles.Lookup lookup, String name, Class<Double> type, double value) {
         return value;
     }
 
-    public static Double doubleWrapper(MethodHandles.Lookup lookup, String name, Class<Double> type, double value) {
+    public static Long longWrapper(MethodHandles.Lookup lookup, String name, Class<Long> type, long value) {
         return value;
     }
 

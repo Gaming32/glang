@@ -8,7 +8,7 @@ public class NullExpression extends LiteralExpression<Void> {
     }
 
     @Override
-    public StringBuilder print(StringBuilder result, int currentIndent, int indent) {
-        return result.append("null");
+    public String toString() {
+        return "null";
     }
 }

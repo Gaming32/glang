@@ -9,7 +9,7 @@ public class StringExpression extends LiteralExpression<String> {
     }
 
     @Override
-    public StringBuilder print(StringBuilder result, int currentIndent, int indent) {
-        return result.append(Token.Str.prettyPrint(getValue()));
+    public String toString() {
+        return Token.Str.prettyPrint(getValue());
     }
 }

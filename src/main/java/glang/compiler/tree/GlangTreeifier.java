@@ -9,7 +9,6 @@ import glang.compiler.tree.statement.BlockStatement;
 import glang.compiler.tree.statement.ExpressionStatement;
 import glang.compiler.tree.statement.ImportStatement;
 import glang.compiler.tree.statement.StatementNode;
-import glang.util.GlangStringUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -20,15 +19,14 @@ import java.util.function.IntFunction;
 
 public class GlangTreeifier {
     private final Token[] tokens;
-    private final IntFunction<String> lineGetter;
+    private final ErrorCollector errorCollector;
     private final Token eof;
 
     private int index;
-    private ErrorCollector errorCollector = new ErrorCollector();
 
-    public GlangTreeifier(List<Token> tokens, IntFunction<String> lineGetter) {
+    public GlangTreeifier(List<Token> tokens, ErrorCollector errorCollector) {
         this.tokens = tokens.toArray(Token[]::new);
-        this.lineGetter = lineGetter;
+        this.errorCollector = errorCollector;
 
         if (!tokens.isEmpty()) {
             final SourceLocation end = this.tokens[this.tokens.length - 1].getLocation();
@@ -38,37 +36,32 @@ public class GlangTreeifier {
         }
     }
 
-    public GlangTreeifier(String source) throws TokenizeFailure {
-        this(GlangTokenizer.tokenize(source), i -> GlangStringUtils.getLine(source, i));
+    public GlangTreeifier(List<Token> tokens, IntFunction<String> lineGetter) {
+        this(tokens, new ErrorCollector(lineGetter));
     }
 
-    public static StatementList treeify(List<Token> tokens, IntFunction<String> lineGetter) throws CompileFailedException {
-        return new GlangTreeifier(tokens, lineGetter).treeify();
+    public GlangTreeifier(String source) throws TokenizeFailure {
+        this(GlangTokenizer.tokenize(source), new ErrorCollector(source));
     }
 
     public static StatementList treeify(String source) throws CompileFailedException {
-        return new GlangTreeifier(source).treeify();
-    }
-
-    public StatementList treeify() throws CompileFailedException {
-        reset(null);
-        final StatementList result = statementList(TokenType.EOF);
-        errorCollector.throwIfFailed();
+        final GlangTreeifier treeifier = new GlangTreeifier(source);
+        final StatementList result = treeifier.treeify();
+        treeifier.errorCollector.throwIfFailed();
         return result;
     }
 
-    public StatementList treeify(ErrorCollector errorCollector) {
-        reset(errorCollector);
+    public StatementList treeify() {
+        reset();
         return statementList(TokenType.EOF);
     }
 
-    public void reset(ErrorCollector newErrorCollector) {
+    public ErrorCollector getErrorCollector() {
+        return errorCollector;
+    }
+
+    public void reset() {
         index = 0;
-        if (newErrorCollector != null) {
-            errorCollector = newErrorCollector;
-        } else if (!errorCollector.getErrors().isEmpty()) {
-            errorCollector = new ErrorCollector();
-        }
     }
 
     public StatementList statementList(TokenType end) {
@@ -399,7 +392,7 @@ public class GlangTreeifier {
 
     private void errorSafe(String reason) {
         final SourceLocation location = getSourceLocation();
-        errorCollector.addError(reason, location, lineGetter.apply(location.line() - 1));
+        errorCollector.addError(reason, location);
     }
 
     private SourceLocation getSourceLocation() {

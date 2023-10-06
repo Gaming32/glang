@@ -13,10 +13,8 @@ import glang.compiler.tree.statement.StatementNode;
 import org.objectweb.asm.*;
 
 import java.math.BigInteger;
-import java.util.ArrayDeque;
-import java.util.Deque;
-import java.util.LinkedHashMap;
-import java.util.Map;
+import java.util.*;
+import java.util.function.Consumer;
 import java.util.function.Function;
 
 public class GlangCompiler {
@@ -27,10 +25,18 @@ public class GlangCompiler {
     private static final String j_i_PrintStream = "java/io/PrintStream";
     private static final String j_i_PrintStream_DESC = "L" + j_i_PrintStream + ";";
     private static final String g_r_ConstantBootstrap = "glang/runtime/ConstantBootstrap";
+    private static final String g_r_GlangRuntime = "glang/runtime/GlangRuntime";
+    private static final String g_r_ObjectInvokers = "glang/runtime/ObjectInvokers";
+
+    private static final String GLOBALS = "GLOBALS";
+    private static final String GLOBALS_DESC = "Ljava/util/Map;";
+    private static final String GLOBALS_SIG = "Ljava/util/Map<Ljava/lang/String;Ljava/lang/Object;>;";
+
     private static final String CONDY_DESC_PREFIX = "(Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/Class;";
 
     private final String namespacePath;
     private final String className;
+    private final String classNameInternal;
     private final StatementList code;
     private final Function<String, ClassVisitor> visitors;
     private final ErrorCollector errorCollector;
@@ -44,6 +50,7 @@ public class GlangCompiler {
     public GlangCompiler(String namespacePath, StatementList code, Function<String, ClassVisitor> visitors, ErrorCollector errorCollector) {
         this.namespacePath = namespacePath;
         this.className = namespacePathToClassName(namespacePath);
+        this.classNameInternal = className.replace('.', '/');
         this.code = code;
         this.visitors = visitors;
         this.errorCollector = errorCollector;
@@ -101,11 +108,29 @@ public class GlangCompiler {
     }
 
     public void compile(String sourceFile) {
-        final ClassState clazz = classStates.push(className.replace('.', '/'));
+        final ClassState clazz = classStates.push(classNameInternal);
         clazz.visitor = visitors.apply(className);
         clazz.visitor.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, clazz.name, null, j_l_Object, null);
         if (sourceFile != null) {
             clazz.visitor.visitSource(sourceFile, null);
+        }
+        clazz.visitor.visitField(
+            Opcodes.ACC_PRIVATE | Opcodes.ACC_STATIC | Opcodes.ACC_FINAL,
+            GLOBALS, GLOBALS_DESC, GLOBALS_SIG, null
+        );
+        {
+            final MethodVisitor mv = clazz.visitor.visitMethod(
+                Opcodes.ACC_PRIVATE | Opcodes.ACC_STATIC,
+                "<clinit>", "()V", null, null
+            );
+            mv.visitCode();
+            mv.visitTypeInsn(Opcodes.NEW, "java/util/LinkedHashMap");
+            mv.visitInsn(Opcodes.DUP);
+            mv.visitMethodInsn(Opcodes.INVOKESPECIAL, "java/util/LinkedHashMap", "<init>", "()V", false);
+            mv.visitFieldInsn(Opcodes.PUTSTATIC, classNameInternal, GLOBALS, GLOBALS_DESC);
+            mv.visitInsn(Opcodes.RETURN);
+            mv.visitMaxs(0, 0);
+            mv.visitEnd();
         }
 
         final MethodState method = methodStates.push("main");
@@ -200,6 +225,23 @@ public class GlangCompiler {
 
         if (expression instanceof LiteralExpression<?> literal) {
             compileLiteral(literal);
+        } else if (expression instanceof CallExpression call) {
+            compileExpression(call.getTarget());
+            if (call.getArgs().size() < 17) {
+                call.getArgs().forEach(this::compileExpression);
+                visitor.visitMethodInsn(
+                    Opcodes.INVOKESTATIC, g_r_ObjectInvokers, "invokeObject",
+                    "(" + j_l_Object_DESC.repeat(call.getArgs().size() + 1) + ")" + j_l_Object_DESC,
+                    false
+                );
+            } else {
+                compileArray(visitor, call.getArgs(), this::compileExpression);
+                visitor.visitMethodInsn(
+                    Opcodes.INVOKESTATIC, g_r_ObjectInvokers, "invokeObject",
+                    "(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;",
+                    false
+                );
+            }
         } else {
             throw new UnsupportedOperationException("Unsupported ExpressionNode " + expression.getClass().getSimpleName());
         }
@@ -269,6 +311,15 @@ public class GlangCompiler {
             } else {
                 throw new UnsupportedOperationException("Unsupported Number " + literal.getClass().getSimpleName());
             }
+        } else if (literal instanceof IdentifierExpression identifier) {
+            // TODO: Local variables
+            visitor.visitFieldInsn(Opcodes.GETSTATIC, classNameInternal, GLOBALS, GLOBALS_DESC);
+            visitor.visitLdcInsn(identifier.getValue());
+            visitor.visitMethodInsn(
+                Opcodes.INVOKESTATIC, g_r_GlangRuntime, "getGlobal",
+                "(Ljava/util/Map;Ljava/lang/String;)Ljava/lang/Object;",
+                false
+            );
         } else if (literal instanceof NullExpression) {
             visitor.visitInsn(Opcodes.ACONST_NULL);
         } else {
@@ -282,6 +333,28 @@ public class GlangCompiler {
             location = node.getStartLocation();
         }
         errorCollector.addError(reason, location);
+    }
+
+    private static <T> void compileArray(MethodVisitor visitor, List<T> array, Consumer<T> compiler) {
+        visitInt(visitor, array.size());
+        visitor.visitTypeInsn(Opcodes.ANEWARRAY, j_l_Object);
+        for (int i = 0; i < array.size(); i++) {
+            visitor.visitInsn(Opcodes.DUP);
+            visitInt(visitor, i);
+            compiler.accept(array.get(i));
+        }
+    }
+
+    private static void visitInt(MethodVisitor visitor, int value) {
+        if (value >= -1 && value <= 5) {
+            visitor.visitInsn(Opcodes.ICONST_0 + value);
+        } else if (value >= Byte.MIN_VALUE && value <= Byte.MAX_VALUE) {
+            visitor.visitIntInsn(Opcodes.BIPUSH, value);
+        } else if (value >= Short.MIN_VALUE && value <= Short.MAX_VALUE) {
+            visitor.visitIntInsn(Opcodes.SIPUSH, value);
+        } else {
+            visitor.visitLdcInsn(value);
+        }
     }
 
     private static class StateStack<T> {

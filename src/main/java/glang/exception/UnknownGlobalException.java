@@ -1,4 +1,4 @@
-package glang.runtime;
+package glang.exception;
 
 public class UnknownGlobalException extends RuntimeException {
     private final String variableName;

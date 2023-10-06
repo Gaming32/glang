@@ -6,19 +6,19 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-public final class DefaultDefaultImports {
+public final class DefaultImports {
     private static final List<Class<?>> INIT_WITH = List.of(
         BuiltinsNs.class
     );
 
     private static volatile Map<String, Object> defaultImports;
 
-    private DefaultDefaultImports() {
+    private DefaultImports() {
     }
 
     public static Map<String, Object> getDefaultImports() {
         if (defaultImports == null) {
-            synchronized (DefaultDefaultImports.class) {
+            synchronized (DefaultImports.class) {
                 if (defaultImports == null) {
                     defaultImports = findDefaultImports();
                 }

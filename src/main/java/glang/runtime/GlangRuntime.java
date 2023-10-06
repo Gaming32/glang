@@ -1,5 +1,7 @@
 package glang.runtime;
 
+import glang.exception.UninvokableObjectException;
+import glang.exception.UnknownGlobalException;
 import glang.runtime.lookup.MethodLookup;
 import glang.runtime.lookup.StaticMethodLookup;
 
@@ -13,9 +15,13 @@ public final class GlangRuntime {
     }
 
     public static Object getGlobal(Map<String, Object> globals, String name) {
-        final Object value = globals.get(name);
+        Object value = globals.get(name);
         if (value == null && !globals.containsKey(name)) {
-            throw new UnknownGlobalException(name);
+            final Map<String, Object> defaults = DefaultImports.getDefaultImports();
+            value = defaults.get(name);
+            if (value == null && !defaults.containsKey(name)) {
+                throw new UnknownGlobalException(name);
+            }
         }
         return value;
     }
@@ -24,7 +30,7 @@ public final class GlangRuntime {
         if (target instanceof MethodLookup lookup) {
             return lookup.invoke(args);
         }
-        throw new IllegalArgumentException("Cannot invoke object of type " + target.getClass().getName());
+        throw new UninvokableObjectException("Cannot invoke object of type " + target.getClass().getName());
     }
 
     public static Map<String, Object> collectStarImport(Class<?> clazz) {
@@ -37,7 +43,7 @@ public final class GlangRuntime {
             try {
                 result.put(field.getName(), field.get(null));
             } catch (IllegalAccessException e) {
-                throw new RuntimeException("Unable to access " + field.getName(), e);
+                throw new RuntimeException("Failed to access public field " + field.getName(), e);
             }
         }
 

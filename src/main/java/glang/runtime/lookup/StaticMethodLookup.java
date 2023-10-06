@@ -23,8 +23,11 @@ public final class StaticMethodLookup extends MethodLookup {
         this.name = name;
         final List<ApplicableMethod> applicableMethods = new ArrayList<>();
         for (final Method method : clazz.getDeclaredMethods()) {
-            if (!Modifier.isStatic(method.getModifiers()) || !method.canAccess(null)) continue;
-            if (!method.getName().equals(name)) continue;
+            if (
+                !Modifier.isStatic(method.getModifiers()) ||
+                    !method.getName().equals(name) ||
+                    !method.canAccess(null)
+            ) continue;
             final int methodMaxArgs = getMaxArgs(method);
             if (maxArgs < methodMaxArgs) continue;
             final int methodMinArgs = getMinArgs(method);
@@ -105,9 +108,6 @@ public final class StaticMethodLookup extends MethodLookup {
                 }
                 handle = MethodHandles.insertArguments(handle, args.size(), insertedArgs);
             }
-//            for (int i = method.minimumArgs(), l = args.size(); i < l; i++) {
-//                handle = MethodHandles.collectArguments(handle, i, OptionalParameter.PRESENT_MH);
-//            }
             for (int i = Math.min(args.size(), method.minimumArgs() + optionalArgs) - 1, e = method.minimumArgs(); i >= e; i--) {
                 handle = MethodHandles.collectArguments(handle, i, OptionalParameter.PRESENT_MH);
             }

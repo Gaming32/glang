@@ -22,6 +22,10 @@ public abstract class MethodLookup {
 
     protected abstract MethodHandle lookup(List<Class<?>> args) throws NoSuchMethodException;
 
+    public MethodHandle getInvoker(List<Class<?>> argTypes) {
+        return cache.get(argTypes);
+    }
+
     public Object invoke(List<Object> args) throws Throwable {
         final List<Class<?>> argTypes = new ArrayList<>(args.size());
         for (final Object arg : args) {

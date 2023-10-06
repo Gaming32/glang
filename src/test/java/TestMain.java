@@ -1,5 +1,7 @@
 import glang.compiler.bytecode.GlangCompiler;
 import glang.compiler.error.CompileFailedException;
+import glang.runtime.DefaultDefaultImports;
+import glang.runtime.lookup.MethodLookup;
 import org.objectweb.asm.ClassWriter;
 
 import java.util.HashMap;
@@ -46,24 +48,24 @@ public class TestMain {
         // { println("hi") }
         """;
 
-    public static void main(String[] args) {
-//        final List<Token> tokens;
-//        try {
-//            tokens = GlangTokenizer.tokenize(SOURCE);
-//        } catch (TokenizeFailure e) {
-//            System.err.println(e.getMessage());
-//            return;
-//        }
-//        tokens.forEach(System.out::println);
-//        System.out.println();
-//        System.out.println();
-//        System.out.println(TokenSourcePrinter.print(tokens));
+    public static void main(String[] args) throws Throwable {
+        final var imports = DefaultDefaultImports.getDefaultImports();
 
-//        try {
-//            System.out.println(GlangTreeifier.treeify(SOURCE));
-//        } catch (CompileFailedException e) {
-//            System.err.println(e.getMessage());
-//        }
+        final var println = (MethodLookup)imports.get("println");
+        println.invoke("Hello, world!");
+        println.invoke(5);
+        println.invoke(5, 10, 15);
+        println.invoke();
+
+        final var optionalArgTest = (MethodLookup)imports.get("optionalArgTest");
+        println.invoke(optionalArgTest.invoke("hi"));
+        println.invoke(optionalArgTest.invoke("hi", "bye"));
+        println.invoke(optionalArgTest.invoke("hi", "bye", "cry"));
+        println.invoke(optionalArgTest.invoke("hi", "bye", "cry", 5));
+        println.invoke(optionalArgTest.invoke("hi", "bye", "cry", 5, 10));
+        println.invoke(optionalArgTest.invoke("hi", "bye", 5, 10));
+
+        if (true) return;
 
         final Map<String, ClassWriter> result = new HashMap<>();
         final GlangCompiler compiler;

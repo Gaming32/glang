@@ -176,6 +176,7 @@ public class GlangCompiler {
 
         if (statement instanceof ExpressionStatement expressionStatement) {
             if (insertDebugPrints) {
+                method.checkLine(statement);
                 final SourceLocation location = expressionStatement.getStartLocation();
                 visitor.visitFieldInsn(
                     Opcodes.GETSTATIC, j_l_System, "err", j_i_PrintStream_DESC
@@ -193,6 +194,7 @@ public class GlangCompiler {
             }
             compileExpression(expressionStatement.getExpression());
             if (insertDebugPrints) {
+                method.checkLine(statement);
                 visitor.visitMethodInsn(
                     Opcodes.INVOKEVIRTUAL,
                     j_l_StringBuilder,
@@ -229,6 +231,7 @@ public class GlangCompiler {
             compileExpression(call.getTarget());
             if (call.getArgs().size() < 17) {
                 call.getArgs().forEach(this::compileExpression);
+                method.checkLine(expression);
                 visitor.visitMethodInsn(
                     Opcodes.INVOKESTATIC, g_r_ObjectInvokers, "invokeObject",
                     "(" + j_l_Object_DESC.repeat(call.getArgs().size() + 1) + ")" + j_l_Object_DESC,
@@ -236,6 +239,7 @@ public class GlangCompiler {
                 );
             } else {
                 compileArray(visitor, call.getArgs(), this::compileExpression);
+                method.checkLine(expression);
                 visitor.visitMethodInsn(
                     Opcodes.INVOKESTATIC, g_r_ObjectInvokers, "invokeObject",
                     "(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;",
@@ -252,15 +256,18 @@ public class GlangCompiler {
         final MethodVisitor visitor = method.visitor;
 
         if (literal instanceof BooleanExpression booleanExpression) {
+            method.checkLine(literal);
             visitor.visitFieldInsn(
                 Opcodes.GETSTATIC, "java/lang/Boolean",
                 booleanExpression.getValue() ? "TRUE" : "FALSE",
                 "Ljava/lang/Boolean;"
             );
         } else if (literal instanceof StringExpression stringExpression) {
+            method.checkLine(literal);
             visitor.visitLdcInsn(stringExpression.getValue());
         } else if (literal instanceof NumberExpression numberExpression) {
             if (numberExpression.getValue() instanceof Integer integer) {
+                method.checkLine(literal);
                 visitor.visitLdcInsn(new ConstantDynamic(
                     "$glang$int$", "Ljava/lang/Integer;",
                     new Handle(
@@ -273,6 +280,7 @@ public class GlangCompiler {
                     integer
                 ));
             } else if (numberExpression.getValue() instanceof Double doubleValue) {
+                method.checkLine(literal);
                 visitor.visitLdcInsn(new ConstantDynamic(
                     "$glang$double$", "Ljava/lang/Double;",
                     new Handle(
@@ -285,6 +293,7 @@ public class GlangCompiler {
                     doubleValue
                 ));
             } else if (numberExpression.getValue() instanceof Long longValue) {
+                method.checkLine(literal);
                 visitor.visitLdcInsn(new ConstantDynamic(
                     "$glang$long$", "Ljava/lang/Long;",
                     new Handle(
@@ -297,6 +306,7 @@ public class GlangCompiler {
                     longValue
                 ));
             } else if (numberExpression.getValue() instanceof BigInteger bigInteger) {
+                method.checkLine(literal);
                 visitor.visitLdcInsn(new ConstantDynamic(
                     "$glang$bigInteger$", "Ljava/math/BigInteger;",
                     new Handle(
@@ -312,6 +322,7 @@ public class GlangCompiler {
                 throw new UnsupportedOperationException("Unsupported Number " + literal.getClass().getSimpleName());
             }
         } else if (literal instanceof IdentifierExpression identifier) {
+            method.checkLine(literal);
             // TODO: Local variables
             visitor.visitFieldInsn(Opcodes.GETSTATIC, classNameInternal, GLOBALS, GLOBALS_DESC);
             visitor.visitLdcInsn(identifier.getValue());
@@ -321,6 +332,7 @@ public class GlangCompiler {
                 false
             );
         } else if (literal instanceof NullExpression) {
+            method.checkLine(literal);
             visitor.visitInsn(Opcodes.ACONST_NULL);
         } else {
             throw new UnsupportedOperationException("Unsupported LiteralExpression " + literal.getClass().getSimpleName());
@@ -397,9 +409,20 @@ public class GlangCompiler {
         final String name;
         final ClassState owner = classStates.get();
         MethodVisitor visitor;
+        int currentLine = -1;
 
         MethodState(String name) {
             this.name = name;
+        }
+
+        void checkLine(ASTNode node) {
+            final int line = node.getStartLocation().line();
+            if (line != currentLine) {
+                final Label lineLabel = new Label();
+                visitor.visitLabel(lineLabel);
+                visitor.visitLineNumber(line, lineLabel);
+                currentLine = line;
+            }
         }
     }
 

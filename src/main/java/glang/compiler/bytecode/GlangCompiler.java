@@ -210,6 +210,7 @@ public class GlangCompiler {
                     false
                 );
             } else {
+                method.checkLine(statement);
                 visitor.visitInsn(Opcodes.POP);
             }
         } else if (statement instanceof BlockStatement blockStatement) {

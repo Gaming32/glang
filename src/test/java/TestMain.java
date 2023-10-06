@@ -1,6 +1,7 @@
 import glang.compiler.bytecode.GlangCompiler;
 import glang.compiler.error.CompileFailedException;
 import glang.runtime.DefaultImports;
+import glang.runtime.cl.GlangClassLoader;
 import glang.runtime.lookup.MethodLookup;
 import org.objectweb.asm.ClassWriter;
 
@@ -42,8 +43,24 @@ public class TestMain {
         """;
 
     public static void main(String[] args) {
-        testCode(args);
+        testCL(args);
+//        testCode(args);
 //        testInvoke();
+    }
+
+    private static void testCL(String[] args) {
+        final ClassLoader cl = new GlangClassLoader();
+        try {
+            cl.loadClass("a.b.TestNs")
+                .getDeclaredMethod("main", String[].class)
+                .invoke(null, (Object)args);
+        } catch (InvocationTargetException e) {
+            System.err.println("Failed to run main class");
+            e.getCause().printStackTrace();
+        } catch (Throwable t) {
+            System.err.println("Failed to load main class");
+            t.printStackTrace();
+        }
     }
 
     private static void testCode(String[] args) {
@@ -57,7 +74,7 @@ public class TestMain {
                 )
             );
 //            compiler.insertDebugPrints(true);
-            compiler.compile();
+            compiler.compile("test.glang");
             compiler.getErrorCollector().throwIfFailed();
         } catch (CompileFailedException e) {
             System.err.println(e.getMessage());

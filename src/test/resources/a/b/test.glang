@@ -23,3 +23,5 @@ println(010)
 
 { println("Hello, world!") }
 println(Object, String, Class)
+
+println(Object())

@@ -242,7 +242,7 @@ public class GlangCompiler {
                 compileArray(visitor, call.getArgs(), this::compileExpression);
                 method.checkLine(expression);
                 visitor.visitMethodInsn(
-                    Opcodes.INVOKESTATIC, g_r_ObjectInvokers, "invokeObject",
+                    Opcodes.INVOKESTATIC, g_r_GlangRuntime, "invokeObject",
                     "(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;",
                     false
                 );

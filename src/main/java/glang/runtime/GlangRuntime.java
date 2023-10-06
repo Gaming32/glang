@@ -1,16 +1,24 @@
 package glang.runtime;
 
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.LoadingCache;
 import glang.exception.UninvokableObjectException;
 import glang.exception.UnknownGlobalException;
 import glang.runtime.lookup.MethodLookup;
 import glang.runtime.lookup.StaticMethodLookup;
 
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.*;
 
 public final class GlangRuntime {
+    private static final LoadingCache<Class<?>, StaticMethodLookup<Constructor<?>>> CONSTRUCTOR_CACHE =
+        Caffeine.newBuilder()
+            .softValues()
+            .build(clazz -> new StaticMethodLookup<>(clazz, MethodLookup.Unreflector.CONSTRUCTOR));
+
     private GlangRuntime() {
     }
 
@@ -26,11 +34,23 @@ public final class GlangRuntime {
         return value;
     }
 
+    @SuppressWarnings("unchecked")
+    public static <T> StaticMethodLookup<Constructor<T>> findConstructors(Class<T> clazz) {
+        return (StaticMethodLookup<Constructor<T>>)(StaticMethodLookup<?>)CONSTRUCTOR_CACHE.get(clazz);
+    }
+
     public static Object invokeObject(Object target, List<Object> args) throws Throwable {
+        if (target instanceof Class<?> clazz) {
+            target = findConstructors(clazz);
+        }
         if (target instanceof MethodLookup lookup) {
             return lookup.invoke(args);
         }
         throw new UninvokableObjectException("Cannot invoke object of type " + target.getClass().getName());
+    }
+
+    public static Object invokeObject(Object target, Object... args) throws Throwable {
+        return invokeObject(target, List.of(args));
     }
 
     public static Map<String, Object> collectStarImport(Class<?> clazz) {
@@ -55,7 +75,9 @@ public final class GlangRuntime {
                 continue;
             }
             if (methodNames.add(method.getName())) {
-                result.put(method.getName(), new StaticMethodLookup(clazz, method.getName()));
+                result.put(method.getName(), new StaticMethodLookup<>(
+                    clazz, MethodLookup.Unreflector.staticMethod(method.getName())
+                ));
             }
         }
 

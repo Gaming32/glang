@@ -5,57 +5,52 @@ import glang.runtime.RuntimeUtil;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
-import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
+import java.lang.reflect.Executable;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 
-public final class StaticMethodLookup extends MethodLookup {
+public final class StaticMethodLookup<E extends Executable> extends MethodLookup {
     public static final int MAX_ARGS = 255; // Maybe increase this?
 
     private final Class<?> clazz;
-    private final String name;
-    private final List<ApplicableMethod> applicableMethods;
+    private final Unreflector<E> unreflector;
+    private final List<ApplicableMethod<E>> applicableMethods;
 
-    public StaticMethodLookup(Class<?> clazz, String name, int minArgs, int maxArgs) {
+    public StaticMethodLookup(Class<?> clazz, Unreflector<E> unreflector, int minArgs, int maxArgs) {
         this.clazz = clazz;
-        this.name = name;
-        final List<ApplicableMethod> applicableMethods = new ArrayList<>();
-        for (final Method method : clazz.getDeclaredMethods()) {
-            if (
-                !Modifier.isStatic(method.getModifiers()) ||
-                    !method.getName().equals(name) ||
-                    !method.canAccess(null)
-            ) continue;
+        this.unreflector = unreflector;
+        final List<ApplicableMethod<E>> applicableMethods = new ArrayList<>();
+        for (final E method : unreflector.getDeclared(clazz)) {
+            if (!unreflector.filter(method) || !method.canAccess(null)) continue;
             final int methodMaxArgs = getMaxArgs(method);
             if (maxArgs < methodMaxArgs) continue;
             final int methodMinArgs = getMinArgs(method);
             if (minArgs > methodMinArgs) continue;
-            applicableMethods.add(new ApplicableMethod(method, methodMinArgs, methodMaxArgs, method.getParameterTypes()));
+            applicableMethods.add(new ApplicableMethod<>(method, methodMinArgs, methodMaxArgs, method.getParameterTypes()));
         }
         this.applicableMethods = List.copyOf(applicableMethods);
     }
 
-    public StaticMethodLookup(Class<?> clazz, String name, int minArgs) {
-        this(clazz, name, minArgs, MAX_ARGS);
+    public StaticMethodLookup(Class<?> clazz, Unreflector<E> unreflector, int minArgs) {
+        this(clazz, unreflector, minArgs, MAX_ARGS);
     }
 
-    public StaticMethodLookup(Class<?> clazz, String name) {
-        this(clazz, name, 0, MAX_ARGS);
+    public StaticMethodLookup(Class<?> clazz, Unreflector<E> unreflector) {
+        this(clazz, unreflector, 0, MAX_ARGS);
     }
 
     @Override
     public String toString() {
-        return "public fn " + clazz.getCanonicalName() + "." + name;
+        return "public fn " + unreflector.getName(clazz);
     }
 
     @Override
     protected MethodHandle lookup(List<Class<?>> args) throws NoSuchMethodException {
         final int argCount = args.size();
-        final List<ApplicableMethod> matches = new ArrayList<>();
+        final List<ApplicableMethod<E>> matches = new ArrayList<>();
         methodSearch:
-        for (final ApplicableMethod method : applicableMethods) {
+        for (final ApplicableMethod<E> method : applicableMethods) {
             if (method.minimumArgs() > argCount || method.maximumArgs() < argCount) continue;
             final Class<?>[] argTypes = method.argTypes();
             for (int i = 0, l = method.minimumArgs(); i < l; i++) {
@@ -80,12 +75,12 @@ public final class StaticMethodLookup extends MethodLookup {
         return adapt(findBestMatch(matches), args);
     }
 
-    private MethodHandle adapt(ApplicableMethod method, List<Class<?>> args) throws NoSuchMethodException {
-        final Method rMethod = method.method();
+    private MethodHandle adapt(ApplicableMethod<E> method, List<Class<?>> args) throws NoSuchMethodException {
+        final E rMethod = method.method();
 
         MethodHandle handle;
         try {
-            handle = LOOKUP.unreflect(rMethod);
+            handle = unreflector.unreflect(LOOKUP, rMethod);
         } catch (IllegalAccessException e) {
             final NoSuchMethodException e2 = new NoSuchMethodException("Cannot access " + rMethod);
             e2.initCause(e);
@@ -120,12 +115,12 @@ public final class StaticMethodLookup extends MethodLookup {
         return handle;
     }
 
-    private static ApplicableMethod findBestMatch(List<ApplicableMethod> matches) {
-        ApplicableMethod singleMatch = matches.get(0);
+    private static <E extends Executable> ApplicableMethod<E> findBestMatch(List<ApplicableMethod<E>> matches) {
+        ApplicableMethod<E> singleMatch = matches.get(0);
         if (matches.size() > 1) {
-            final Comparator<ApplicableMethod> comparator = ApplicableMethod.createComparator();
+            final Comparator<ApplicableMethod<E>> comparator = ApplicableMethod.createComparator();
             for (int i = 1, l = matches.size(); i < l; i++) {
-                final ApplicableMethod match = matches.get(i);
+                final ApplicableMethod<E> match = matches.get(i);
                 if (comparator.compare(match, singleMatch) < 0) {
                     singleMatch = match;
                 }
@@ -134,7 +129,7 @@ public final class StaticMethodLookup extends MethodLookup {
         return singleMatch;
     }
 
-    private static int getMinArgs(Method method) {
+    private static int getMinArgs(Executable method) {
         int count = method.getParameterCount();
         if (method.isVarArgs()) {
             count--;
@@ -152,7 +147,7 @@ public final class StaticMethodLookup extends MethodLookup {
         return count;
     }
 
-    private static int getMaxArgs(Method method) {
+    private static int getMaxArgs(Executable method) {
         return method.isVarArgs() ? MAX_ARGS : method.getParameterCount();
     }
 }

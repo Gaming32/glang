@@ -6,7 +6,10 @@ import com.github.benmanes.caffeine.cache.LoadingCache;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Executable;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -70,9 +73,65 @@ public abstract class MethodLookup {
         )).invoke(arg1, arg2, arg3, arg4, arg5);
     }
 
-    protected record ApplicableMethod(Method method, int minimumArgs, int maximumArgs, Class<?>[] argTypes) {
-        public static Comparator<ApplicableMethod> createComparator() {
+    protected record ApplicableMethod<E extends Executable>(E method, int minimumArgs, int maximumArgs, Class<?>[] argTypes) {
+        public static <E extends Executable> Comparator<ApplicableMethod<E>> createComparator() {
             return Comparator.comparingInt(m -> m.maximumArgs - m.minimumArgs);
         }
+    }
+
+    public interface Unreflector<E extends Executable> {
+        Unreflector<Constructor<?>> CONSTRUCTOR = new Unreflector<>() {
+            @Override
+            public Constructor<?>[] getDeclared(Class<?> clazz) {
+                return clazz.getDeclaredConstructors();
+            }
+
+            @Override
+            public String getName(Class<?> clazz) {
+                return clazz.getCanonicalName();
+            }
+
+            @Override
+            public boolean filter(Constructor<?> method) {
+                return true;
+            }
+
+            @Override
+            public MethodHandle unreflect(MethodHandles.Lookup lookup, Constructor<?> method) throws IllegalAccessException {
+                return lookup.unreflectConstructor(method);
+            }
+        };
+
+        static Unreflector<Method> staticMethod(String name) {
+            return new Unreflector<>() {
+                @Override
+                public Method[] getDeclared(Class<?> clazz) {
+                    return clazz.getDeclaredMethods();
+                }
+
+                @Override
+                public String getName(Class<?> clazz) {
+                    return clazz.getCanonicalName() + '.' + name;
+                }
+
+                @Override
+                public boolean filter(Method method) {
+                    return Modifier.isStatic(method.getModifiers()) && method.getName().equals(name);
+                }
+
+                @Override
+                public MethodHandle unreflect(MethodHandles.Lookup lookup, Method method) throws IllegalAccessException {
+                    return lookup.unreflect(method);
+                }
+            };
+        }
+
+        E[] getDeclared(Class<?> clazz);
+
+        String getName(Class<?> clazz);
+
+        boolean filter(E method);
+
+        MethodHandle unreflect(MethodHandles.Lookup lookup, E method) throws IllegalAccessException;
     }
 }

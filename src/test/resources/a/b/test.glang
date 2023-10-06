@@ -25,3 +25,4 @@ println(010)
 println(Object, String, Class)
 
 println(Object())
+println(println)

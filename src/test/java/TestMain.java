@@ -49,8 +49,7 @@ public class TestMain {
     }
 
     private static void testCL(String[] args) {
-        final ClassLoader cl = new GlangClassLoader();
-        try {
+        try (var cl = new GlangClassLoader()) {
             cl.loadClass("a.b.TestNs")
                 .getDeclaredMethod("main", String[].class)
                 .invoke(null, (Object)args);

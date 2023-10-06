@@ -6,27 +6,46 @@ import org.objectweb.asm.ClassWriter;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URL;
+import java.net.URLClassLoader;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 
-public class GlangClassLoader extends ClassLoader {
+public class GlangClassLoader extends URLClassLoader {
     private static final String SUFFIX = ".glang";
 
     private final Map<String, byte[]> waitingClasses = new HashMap<>();
 
-    public GlangClassLoader(ClassLoader parent) {
-        super("glang", parent);
+    public GlangClassLoader(URL[] urls, ClassLoader parent) {
+        super("glang", urls, parent);
+    }
+
+    public GlangClassLoader(URL[] urls) {
+        this(urls, getSystemClassLoader());
     }
 
     public GlangClassLoader() {
-        this(getSystemClassLoader());
+        this(new URL[0], getSystemClassLoader());
     }
 
     @Override
     protected Class<?> findClass(String name) throws ClassNotFoundException {
-        final byte[] bytes = findClassBytes(name);
-        return defineClass(name, bytes, 0, bytes.length);
+        try {
+            final byte[] bytes = findClassBytes(name);
+            return defineClass(name, bytes, 0, bytes.length);
+        } catch (ClassNotFoundException e) {
+            if (e.getCause() != null) {
+                throw e;
+            }
+            return super.findClass(name);
+        }
+    }
+
+    @Override
+    public void close() throws IOException {
+        waitingClasses.clear(); // Clear waiting to clean up some memory
+        super.close();
     }
 
     private byte[] findClassBytes(String name) throws ClassNotFoundException {

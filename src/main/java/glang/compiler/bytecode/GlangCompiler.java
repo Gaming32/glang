@@ -38,7 +38,7 @@ public class GlangCompiler {
     private final String className;
     private final String classNameInternal;
     private final StatementList code;
-    private final Function<String, ClassVisitor> visitors;
+    private final Function<String, ClassWriter> visitors;
     private final ErrorCollector errorCollector;
 
     private boolean insertDebugPrints = false;
@@ -47,7 +47,7 @@ public class GlangCompiler {
     private final StateStack<MethodState> methodStates = new StateStack<>(MethodState::new);
     private final StateStack<ScopeState> scopeStates = new StateStack<>(ScopeState::new);
 
-    public GlangCompiler(String namespacePath, StatementList code, Function<String, ClassVisitor> visitors, ErrorCollector errorCollector) {
+    public GlangCompiler(String namespacePath, StatementList code, Function<String, ClassWriter> visitors, ErrorCollector errorCollector) {
         this.namespacePath = namespacePath;
         this.className = namespacePathToClassName(namespacePath);
         this.classNameInternal = className.replace('.', '/');
@@ -56,19 +56,19 @@ public class GlangCompiler {
         this.errorCollector = errorCollector;
     }
 
-    public GlangCompiler(String namespacePath, String source, Function<String, ClassVisitor> visitors) throws CompileFailedException {
+    public GlangCompiler(String namespacePath, String source, Function<String, ClassWriter> visitors) throws CompileFailedException {
         this(namespacePath, GlangTreeifier.treeify(source), visitors, new ErrorCollector(source));
     }
 
     public static void compile(
-        String namespacePath, StatementList code, Function<String, ClassVisitor> visitors, ErrorCollector errorCollector
+        String namespacePath, StatementList code, Function<String, ClassWriter> visitors, ErrorCollector errorCollector
     ) throws CompileFailedException {
         final GlangCompiler compiler = new GlangCompiler(namespacePath, code, visitors, errorCollector);
         compiler.compile();
         errorCollector.throwIfFailed();
     }
 
-    public static void compile(String namespacePath, String source, Function<String, ClassVisitor> visitors) throws CompileFailedException {
+    public static void compile(String namespacePath, String source, Function<String, ClassWriter> visitors) throws CompileFailedException {
         final GlangCompiler compiler = new GlangCompiler(namespacePath, source, visitors);
         compiler.compile();
         compiler.errorCollector.throwIfFailed();
@@ -109,7 +109,7 @@ public class GlangCompiler {
 
     public void compile(String sourceFile) {
         final ClassState clazz = classStates.push(classNameInternal);
-        clazz.visitor = visitors.apply(className);
+        clazz.visitor = getVisitor(className);
         clazz.visitor.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, clazz.name, null, j_l_Object, null);
         if (sourceFile != null) {
             clazz.visitor.visitSource(sourceFile, null);
@@ -142,6 +142,7 @@ public class GlangCompiler {
         method.visitor.visitCode();
         final ScopeState scope = scopeStates.push("");
         final VariableInfo argsVariable = new VariableInfo(0, "[Ljava/lang/String;");
+        argsVariable.isArg = true;
         scope.variables.put("args", argsVariable);
         compileRoot();
         scopeStates.pop();
@@ -151,6 +152,17 @@ public class GlangCompiler {
 
         clazz.visitor.visitEnd();
         classStates.pop();
+    }
+
+    private ClassVisitor getVisitor(String name) {
+        final ClassWriter writer = visitors.apply(name);
+        if (!writer.hasFlags(ClassWriter.COMPUTE_FRAMES)) {
+            throw new IllegalArgumentException(
+                "GlangCompiler relies on ClassWriter.COMPUTE_FRAMES. " +
+                    "Please pass this flag to ClassWriters passed to GlangCompiler."
+            );
+        }
+        return writer;
     }
 
     private void compileRoot() {

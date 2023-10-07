@@ -1,15 +1,17 @@
 package glang.compiler.tree.statement;
 
 import glang.compiler.SourceLocation;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
 
 public class ImportStatement extends StatementNode {
     private final List<String> parentPath;
+    @Nullable
     private final String target;
 
     public ImportStatement(
-        List<String> parentPath, String target,
+        List<String> parentPath, @Nullable String target,
         SourceLocation startLocation, SourceLocation endLocation
     ) {
         super(startLocation, endLocation);
@@ -21,6 +23,7 @@ public class ImportStatement extends StatementNode {
         return parentPath;
     }
 
+    @Nullable
     public String getTarget() {
         return target;
     }
@@ -31,6 +34,6 @@ public class ImportStatement extends StatementNode {
         for (final String part : parentPath) {
             result.append(part).append('.');
         }
-        return result.append(target);
+        return result.append(target != null ? target : "*");
     }
 }

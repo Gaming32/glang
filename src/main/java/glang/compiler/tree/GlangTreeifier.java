@@ -125,6 +125,10 @@ public class GlangTreeifier {
         final SourceLocation startLocation = getSourceLocation();
         final List<String> parts = new ArrayList<>();
         do {
+            if (match(TokenType.STAR)) {
+                parts.add(null);
+                break;
+            }
             parts.add(((Token.Identifier)expect(TokenType.IDENTIFIER)).getIdentifier());
         } while (match(TokenType.DOT));
         endOfStatement();

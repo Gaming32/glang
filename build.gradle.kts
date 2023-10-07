@@ -1,6 +1,8 @@
 plugins {
     java
     `java-library`
+    application
+    id("com.github.johnrengelman.shadow") version("8.1.1")
 }
 
 group = "io.github.gaming32"
@@ -12,13 +14,30 @@ repositories {
 
 dependencies {
     implementation("org.ow2.asm:asm:9.6")
-    implementation("com.github.ben-manes.caffeine:caffeine:3.1.8")
+
+    implementation("com.github.ben-manes.caffeine:caffeine:3.1.8") {
+        exclude(group = "org.checkerframework")
+        exclude(group = "com.google.errorprone")
+    }
 
     compileOnlyApi("org.jetbrains:annotations:24.0.1")
 }
 
-tasks.test {
-    useJUnitPlatform()
+//tasks.test {
+//    useJUnitPlatform()
+//}
+
+application {
+    mainClass.set("glang.launcher.ScriptLauncher")
+}
+
+tasks.shadowJar {
+    manifest {
+        attributes["Main-Class"] = application.mainClass.get()
+    }
+    for (pkg in listOf("org.objectweb.asm", "com.github.benmanes.caffeine")) {
+        relocate(pkg, "glang.shaded.$pkg")
+    }
 }
 
 val generateObjectInvokers by tasks.registering {

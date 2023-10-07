@@ -117,7 +117,7 @@ public final class GlangTokenizer {
     private void handleIdentifier(List<Token> result, StringBuilder tokenBuilder, char firstChar) {
         tokenBuilder.setLength(0);
         tokenBuilder.append(firstChar);
-        while (Character.isJavaIdentifierPart(peek())) {
+        while (peek() != EOF && Character.isJavaIdentifierPart(peek())) {
             tokenBuilder.append(next());
         }
         final String token = tokenBuilder.toString();

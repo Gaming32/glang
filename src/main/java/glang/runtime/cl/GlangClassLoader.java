@@ -29,6 +29,15 @@ public class GlangClassLoader extends URLClassLoader {
         this(new URL[0], getSystemClassLoader());
     }
 
+    public Class<?> loadClassFromResource(String path) throws ClassNotFoundException {
+        if (!path.endsWith(".glang")) {
+            throw new IllegalArgumentException("Path does not end with .glang");
+        }
+        return loadClass(GlangCompiler.namespacePathToClassName(
+            path.substring(0, path.length() - 6).replace('/', '.')
+        ));
+    }
+
     @Override
     protected Class<?> findClass(String name) throws ClassNotFoundException {
         try {

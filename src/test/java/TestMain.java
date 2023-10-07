@@ -1,8 +1,6 @@
 import glang.compiler.bytecode.GlangCompiler;
 import glang.compiler.error.CompileFailedException;
-import glang.runtime.DefaultImports;
 import glang.runtime.cl.GlangClassLoader;
-import glang.runtime.lookup.MethodLookup;
 import org.objectweb.asm.ClassWriter;
 
 import java.io.IOException;
@@ -111,34 +109,6 @@ public class TestMain {
         } catch (Throwable t) {
             System.err.println("Failed to load main class");
             t.printStackTrace();
-        }
-    }
-
-    private static void testInvoke() {
-        try {
-            final var imports = DefaultImports.getDefaultImports();
-
-            final var println = (MethodLookup)imports.get("println");
-            println.invoke("Hello, world!");
-            println.invoke(5);
-            println.invoke(5, 10, 15);
-            println.invoke();
-
-            final var optionalArgTest = (MethodLookup)imports.get("optionalArgTest");
-            println.invoke(optionalArgTest.invoke("hi"));
-            println.invoke(optionalArgTest.invoke("hi", "bye"));
-            println.invoke(optionalArgTest.invoke("hi", "bye", "cry"));
-            println.invoke(optionalArgTest.invoke("hi", "bye", "cry", 5));
-            println.invoke(optionalArgTest.invoke("hi", "bye", "cry", 5, 10));
-            println.invoke(optionalArgTest.invoke("hi", "bye", 5, 10));
-        } catch (Throwable t) {
-            if (t instanceof RuntimeException re) {
-                throw re;
-            }
-            if (t instanceof Error e) {
-                throw e;
-            }
-            throw new RuntimeException(t);
         }
     }
 }

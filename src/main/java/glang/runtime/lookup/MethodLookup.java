@@ -3,6 +3,7 @@ package glang.runtime.lookup;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.CaffeineSpec;
 import com.github.benmanes.caffeine.cache.LoadingCache;
+import glang.runtime.GlangRuntime;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
@@ -13,6 +14,7 @@ import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.concurrent.CompletionException;
 
 public abstract class MethodLookup {
     public static final CaffeineSpec CACHE_SPEC = CaffeineSpec.parse(System.getProperty(
@@ -25,52 +27,24 @@ public abstract class MethodLookup {
 
     protected abstract MethodHandle lookup(List<Class<?>> args) throws NoSuchMethodException;
 
-    public MethodHandle getInvoker(List<Class<?>> argTypes) {
-        return cache.get(argTypes);
+    public MethodHandle getInvoker(List<Class<?>> argTypes) throws Throwable {
+        try {
+            return cache.get(argTypes);
+        } catch (CompletionException e) {
+            throw e.getCause();
+        }
     }
 
     public Object invoke(List<Object> args) throws Throwable {
         final List<Class<?>> argTypes = new ArrayList<>(args.size());
         for (final Object arg : args) {
-            argTypes.add(arg.getClass());
+            argTypes.add(GlangRuntime.getClass(arg));
         }
-        return cache.get(argTypes).invokeWithArguments(args);
+        return getInvoker(argTypes).invokeWithArguments(args);
     }
 
     public Object invoke() throws Throwable {
-        return cache.get(List.of()).invoke();
-    }
-
-    public Object invoke(Object arg1) throws Throwable {
-        return cache.get(List.of(arg1.getClass())).invoke(arg1);
-    }
-
-    public Object invoke(Object arg1, Object arg2) throws Throwable {
-        return cache.get(List.of(arg1.getClass(), arg2.getClass())).invoke(arg1, arg2);
-    }
-
-    public Object invoke(Object arg1, Object arg2, Object arg3) throws Throwable {
-        return cache.get(List.of(arg1.getClass(), arg2.getClass(), arg3.getClass())).invoke(arg1, arg2, arg3);
-    }
-
-    public Object invoke(Object arg1, Object arg2, Object arg3, Object arg4) throws Throwable {
-        return cache.get(List.of(arg1.getClass(), arg2.getClass(), arg3.getClass(), arg4.getClass())).invoke(arg1, arg2, arg3, arg4);
-    }
-
-    public Object invoke(
-        Object arg1,
-        Object arg2,
-        Object arg3,
-        Object arg4,
-        Object arg5
-    ) throws Throwable {
-        return cache.get(List.of(
-            arg1.getClass(),
-            arg2.getClass(),
-            arg3.getClass(),
-            arg4.getClass(),
-            arg5.getClass()
-        )).invoke(arg1, arg2, arg3, arg4, arg5);
+        return getInvoker(List.of()).invoke();
     }
 
     protected record ApplicableMethod<E extends Executable>(E method, int minimumArgs, int maximumArgs, Class<?>[] argTypes) {
@@ -100,9 +74,14 @@ public abstract class MethodLookup {
             public MethodHandle unreflect(MethodHandles.Lookup lookup, Constructor<?> method) throws IllegalAccessException {
                 return lookup.unreflectConstructor(method);
             }
+
+            @Override
+            public int getArgOffset() {
+                return 0;
+            }
         };
 
-        static Unreflector<Method> staticMethod(String name) {
+        static Unreflector<Method> method(String name, boolean isStatic) {
             return new Unreflector<>() {
                 @Override
                 public Method[] getDeclared(Class<?> clazz) {
@@ -116,12 +95,17 @@ public abstract class MethodLookup {
 
                 @Override
                 public boolean filter(Method method) {
-                    return Modifier.isStatic(method.getModifiers()) && method.getName().equals(name);
+                    return Modifier.isStatic(method.getModifiers()) == isStatic && method.getName().equals(name);
                 }
 
                 @Override
                 public MethodHandle unreflect(MethodHandles.Lookup lookup, Method method) throws IllegalAccessException {
                     return lookup.unreflect(method);
+                }
+
+                @Override
+                public int getArgOffset() {
+                    return isStatic ? 1 : 0;
                 }
             };
         }
@@ -133,5 +117,7 @@ public abstract class MethodLookup {
         boolean filter(E method);
 
         MethodHandle unreflect(MethodHandles.Lookup lookup, E method) throws IllegalAccessException;
+
+        int getArgOffset();
     }
 }

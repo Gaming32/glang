@@ -39,6 +39,9 @@ public final class RuntimeUtil {
         if (target.isAssignableFrom(value)) {
             return true;
         }
+        if (value == Void.class) {
+            return !target.isPrimitive();
+        }
         if (target.isPrimitive()) {
             target = TO_WRAPPER_MAP.get(target);
         }

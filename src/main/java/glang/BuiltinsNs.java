@@ -1,9 +1,5 @@
 package glang;
 
-import glang.runtime.OptionalParameter;
-
-import java.util.Arrays;
-
 public class BuiltinsNs {
     public static void println() {
         System.out.println();
@@ -29,7 +25,7 @@ public class BuiltinsNs {
         System.out.println(toPrint);
     }
 
-    public static String optionalArgTest(String a, OptionalParameter b, OptionalParameter c, int... extras) {
-        return a + " " + b + " " + c + " " + Arrays.toString(extras);
+    public static void test(String a) {
+        System.out.println(a);
     }
 }

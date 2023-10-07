@@ -87,6 +87,8 @@ public final class StaticMethodLookup<E extends Executable> extends MethodLookup
             throw e2;
         }
 
+        final int argOffset = unreflector.getArgOffset();
+
         int optionalArgs = rMethod.getParameterCount() - method.minimumArgs();
         if (rMethod.isVarArgs()) {
             optionalArgs--;
@@ -101,10 +103,10 @@ public final class StaticMethodLookup<E extends Executable> extends MethodLookup
                         insertedArgs[i] = new Object[0];
                     }
                 }
-                handle = MethodHandles.insertArguments(handle, args.size(), insertedArgs);
+                handle = MethodHandles.insertArguments(handle, args.size() + argOffset, insertedArgs);
             }
             for (int i = Math.min(args.size(), method.minimumArgs() + optionalArgs) - 1, e = method.minimumArgs(); i >= e; i--) {
-                handle = MethodHandles.collectArguments(handle, i, OptionalParameter.PRESENT_MH);
+                handle = MethodHandles.collectArguments(handle, i + argOffset, OptionalParameter.PRESENT_MH);
             }
         }
 

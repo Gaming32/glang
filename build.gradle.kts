@@ -69,6 +69,9 @@ val generateObjectInvokers by tasks.registering {
                 }
                 w.println(") throws Throwable {")
 
+                w.println("        if (target == null) {")
+                w.println("            throw new NullPointerException(\"null is not invokable\");")
+                w.println("        }")
                 w.println("        if (target instanceof Class<?> clazz) {")
                 w.println("            target = GlangRuntime.findConstructors(clazz);")
                 w.println("        }")
@@ -80,10 +83,9 @@ val generateObjectInvokers by tasks.registering {
                         if (arg > 0) {
                             w.print(", ")
                         }
-                        w.print("arg$arg.getClass()")
+                        w.print("\n                GlangRuntime.getClass(arg$arg)")
                     }
-                    w.println("))")
-                    w.print("                .invoke(")
+                    w.print("\n            )).invoke(")
                     repeat(argCount) { arg ->
                         if (arg > 0) {
                             w.print(", ")

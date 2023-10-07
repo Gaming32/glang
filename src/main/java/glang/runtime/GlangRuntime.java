@@ -40,6 +40,9 @@ public final class GlangRuntime {
     }
 
     public static Object invokeObject(Object target, List<Object> args) throws Throwable {
+        if (target == null) {
+            throw new NullPointerException("null is not invokable");
+        }
         if (target instanceof Class<?> clazz) {
             target = findConstructors(clazz);
         }
@@ -76,11 +79,15 @@ public final class GlangRuntime {
             }
             if (methodNames.add(method.getName())) {
                 result.put(method.getName(), new StaticMethodLookup<>(
-                    clazz, MethodLookup.Unreflector.staticMethod(method.getName())
+                    clazz, MethodLookup.Unreflector.method(method.getName(), true)
                 ));
             }
         }
 
         return result;
+    }
+
+    public static Class<?> getClass(Object obj) {
+        return obj != null ? obj.getClass() : Void.class;
     }
 }

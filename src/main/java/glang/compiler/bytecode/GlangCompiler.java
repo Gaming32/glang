@@ -247,7 +247,6 @@ public class GlangCompiler {
                 method.checkLine(expression);
                 visitor.visitInsn(Opcodes.DUP);
                 compileAccess(access.getMember(), access.getType().toMethodAccess());
-                method.checkLine(expression);
                 visitor.visitInsn(Opcodes.SWAP);
                 argCount++;
             } else {
@@ -270,6 +269,10 @@ public class GlangCompiler {
                     false
                 );
             }
+        } else if (expression instanceof AccessExpression access) {
+            compileExpression(access.getTarget());
+            method.checkLine(expression);
+            compileAccess(access.getMember(), access.getType());
         } else {
             throw new UnsupportedOperationException("Unsupported ExpressionNode " + expression.getClass().getSimpleName());
         }

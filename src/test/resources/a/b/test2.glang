@@ -1,4 +1,5 @@
 println("hi".length())
 println(String.format("%s", 5))
+println(String.!getName())
+println(String::format)
 // println(String.format)
-// println(String::format)

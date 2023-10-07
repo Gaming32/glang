@@ -58,7 +58,10 @@ public class ScriptLauncher {
             .toString()
             .replace(FileSystems.getDefault().getSeparator(), "/");
 
-        try (var cl = new GlangClassLoader(new URL[] {cwd.toUri().toURL()})) {
+        final ClassLoader oldCl = Thread.currentThread().getContextClassLoader();
+        final var cl = new GlangClassLoader(new URL[] {cwd.toUri().toURL()});
+        try (cl) {
+            Thread.currentThread().setContextClassLoader(cl);
             cl.loadClassFromResource(relativePath)
                 .getDeclaredMethod("main", String[].class)
                 .invoke(null, (Object)arguments.toArray(String[]::new));
@@ -71,6 +74,8 @@ public class ScriptLauncher {
                 return;
             }
             throw e;
+        } finally {
+            Thread.currentThread().setContextClassLoader(oldCl);
         }
     }
 }

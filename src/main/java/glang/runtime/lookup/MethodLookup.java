@@ -21,7 +21,7 @@ public abstract class MethodLookup {
         "glang.methodLookup.cacheSpec", "initialCapacity=4,maximumSize=64,softValues"
     ));
 
-    protected static final MethodHandles.Lookup LOOKUP = MethodHandles.publicLookup();
+    protected static final MethodHandles.Lookup LOOKUP = MethodHandles.lookup();
 
     protected final LoadingCache<List<Class<?>>, MethodHandle> cache = Caffeine.from(CACHE_SPEC).build(this::lookup);
 

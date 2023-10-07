@@ -294,10 +294,11 @@ public class GlangTreeifier {
         while (true) {
             if (match(TokenType.LPAREN)) {
                 target = finishCall(startLocation, target);
-            } else if (match(TokenType.DOT)) {
+            } else if (check(TokenGroup.ACCESS)) {
+                final AccessExpression.Type type = AccessExpression.Type.BY_TEXT.get(next().getType().toString());
                 final String member = ((Token.Identifier)expect(TokenType.IDENTIFIER)).getIdentifier();
                 final SourceLocation endLocation = getSourceLocation();
-                target = new AccessExpression(target, member, startLocation, endLocation);
+                target = new AccessExpression(target, member, type, startLocation, endLocation);
             } else {
                 return target;
             }

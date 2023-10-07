@@ -66,22 +66,15 @@ public abstract class MethodLookup {
             }
 
             @Override
-            public boolean filter(Constructor<?> method) {
-                return true;
-            }
-
-            @Override
             public MethodHandle unreflect(MethodHandles.Lookup lookup, Constructor<?> method) throws IllegalAccessException {
                 return lookup.unreflectConstructor(method);
             }
-
-            @Override
-            public int getArgOffset() {
-                return 0;
-            }
         };
 
-        static Unreflector<Method> method(String name, boolean isStatic) {
+        static Unreflector<Method> method(String name, boolean isStatic, boolean insertDummyThis) {
+            if (!isStatic && insertDummyThis) {
+                throw new IllegalArgumentException("Cannot insertDummyThis if isStatic is false");
+            }
             return new Unreflector<>() {
                 @Override
                 public Method[] getDeclared(Class<?> clazz) {
@@ -100,12 +93,13 @@ public abstract class MethodLookup {
 
                 @Override
                 public MethodHandle unreflect(MethodHandles.Lookup lookup, Method method) throws IllegalAccessException {
-                    return lookup.unreflect(method);
+                    final MethodHandle result = lookup.unreflect(method);
+                    return insertDummyThis ? MethodHandles.dropArguments(result, 0, Class.class) : result;
                 }
 
                 @Override
                 public int getArgOffset() {
-                    return isStatic ? 1 : 0;
+                    return !isStatic || insertDummyThis ? 1 : 0;
                 }
             };
         }
@@ -114,10 +108,14 @@ public abstract class MethodLookup {
 
         String getName(Class<?> clazz);
 
-        boolean filter(E method);
+        default boolean filter(E method) {
+            return true;
+        }
 
         MethodHandle unreflect(MethodHandles.Lookup lookup, E method) throws IllegalAccessException;
 
-        int getArgOffset();
+        default int getArgOffset() {
+            return 0;
+        }
     }
 }

@@ -54,6 +54,9 @@ public enum TokenType {
     LCURLY("{"),
     RCURLY("}"),
     DOT("."),
+    DOT_BANG(".!"),
+    COLON_COLON("::"),
+    COLON_COLON_BANG("::!"),
     // Keywords
     IMPORT("import"),
     VAR("var"),

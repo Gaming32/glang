@@ -1,0 +1,4 @@
+println("hi".length())
+println(String.format("%s", 5))
+// println(String.format)
+// println(String::format)

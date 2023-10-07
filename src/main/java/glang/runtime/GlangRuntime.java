@@ -1,11 +1,13 @@
 package glang.runtime;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.CaffeineSpec;
 import com.github.benmanes.caffeine.cache.LoadingCache;
 import glang.exception.UninvokableObjectException;
 import glang.exception.UnknownGlobalException;
+import glang.runtime.lookup.InstanceMethodLookup;
 import glang.runtime.lookup.MethodLookup;
-import glang.runtime.lookup.StaticMethodLookup;
+import glang.runtime.lookup.SimpleMethodLookup;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
@@ -14,10 +16,10 @@ import java.lang.reflect.Modifier;
 import java.util.*;
 
 public final class GlangRuntime {
-    private static final LoadingCache<Class<?>, StaticMethodLookup<Constructor<?>>> CONSTRUCTOR_CACHE =
-        Caffeine.newBuilder()
-            .softValues()
-            .build(clazz -> new StaticMethodLookup<>(clazz, MethodLookup.Unreflector.CONSTRUCTOR));
+    private static final LoadingCache<Class<?>, SimpleMethodLookup<Constructor<?>>> CONSTRUCTOR_CACHE =
+        Caffeine.from(CaffeineSpec.parse(System.getProperty(
+            "glang.constructorLookup.cacheSpec", "softValues"
+        ))).build(clazz -> new SimpleMethodLookup<>(clazz, MethodLookup.Unreflector.CONSTRUCTOR));
 
     private GlangRuntime() {
     }
@@ -35,8 +37,8 @@ public final class GlangRuntime {
     }
 
     @SuppressWarnings("unchecked")
-    public static <T> StaticMethodLookup<Constructor<T>> findConstructors(Class<T> clazz) {
-        return (StaticMethodLookup<Constructor<T>>)(StaticMethodLookup<?>)CONSTRUCTOR_CACHE.get(clazz);
+    public static <T> SimpleMethodLookup<Constructor<T>> findConstructors(Class<T> clazz) {
+        return (SimpleMethodLookup<Constructor<T>>)(SimpleMethodLookup<?>)CONSTRUCTOR_CACHE.get(clazz);
     }
 
     public static Object invokeObject(Object target, List<Object> args) throws Throwable {
@@ -58,10 +60,11 @@ public final class GlangRuntime {
 
     public static Map<String, Object> collectStarImport(Class<?> clazz) {
         final Map<String, Object> result = new LinkedHashMap<>();
+        final int publicStatic = Modifier.PUBLIC | Modifier.STATIC;
 
         final Set<String> fieldNames = new HashSet<>();
         for (final Field field : clazz.getDeclaredFields()) {
-            if (!Modifier.isStatic(field.getModifiers()) || !field.canAccess(null)) continue;
+            if ((field.getModifiers() & publicStatic) != publicStatic) continue;
             fieldNames.add(field.getName());
             try {
                 result.put(field.getName(), field.get(null));
@@ -72,15 +75,19 @@ public final class GlangRuntime {
 
         final Set<String> methodNames = new HashSet<>();
         for (final Method method : clazz.getDeclaredMethods()) {
-            if (!Modifier.isStatic(method.getModifiers()) || !method.canAccess(null)) continue;
+            if ((method.getModifiers() & publicStatic) != publicStatic) continue;
             if (fieldNames.contains(method.getName())) {
                 result.remove(method.getName()); // Duplicate names aren't exported at all, to resolve ambiguous imports
                 continue;
             }
             if (methodNames.add(method.getName())) {
-                result.put(method.getName(), new StaticMethodLookup<>(
-                    clazz, MethodLookup.Unreflector.method(method.getName(), true)
-                ));
+                try {
+                    result.put(method.getName(), new SimpleMethodLookup<>(
+                        clazz, MethodLookup.Unreflector.method(method.getName(), true, false)
+                    ));
+                } catch (NoSuchMethodException e) {
+                    throw new RuntimeException(clazz + " doesn't contain public method " + method.getName());
+                }
             }
         }
 
@@ -89,5 +96,22 @@ public final class GlangRuntime {
 
     public static Class<?> getClass(Object obj) {
         return obj != null ? obj.getClass() : Void.class;
+    }
+
+    public static MethodLookup getInstanceMethod(Object obj, String name, boolean requireDirect) {
+        if (obj == null) {
+            throw new NullPointerException("Cannot invoke method " + name + " on null");
+        }
+        final boolean isClass = obj instanceof Class<?>;
+        return InstanceMethodLookup.get(isClass ? (Class<?>)obj : obj.getClass(), isClass)
+            .getLookup(name, requireDirect);
+    }
+
+    public static MethodLookup getInstanceMethod(Object obj, String name) {
+        return getInstanceMethod(obj, name, false);
+    }
+
+    public static MethodLookup getDirectMethod(Object obj, String name) {
+        return getInstanceMethod(obj, name, true);
     }
 }

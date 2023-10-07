@@ -6,37 +6,41 @@ import glang.runtime.RuntimeUtil;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.reflect.Executable;
+import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 
-public final class StaticMethodLookup<E extends Executable> extends MethodLookup {
+public class SimpleMethodLookup<E extends Executable> extends MethodLookup {
     public static final int MAX_ARGS = 255; // Maybe increase this?
 
     private final Class<?> clazz;
     private final Unreflector<E> unreflector;
     private final List<ApplicableMethod<E>> applicableMethods;
 
-    public StaticMethodLookup(Class<?> clazz, Unreflector<E> unreflector, int minArgs, int maxArgs) {
+    public SimpleMethodLookup(Class<?> clazz, Unreflector<E> unreflector, int minArgs, int maxArgs) throws NoSuchMethodException {
         this.clazz = clazz;
         this.unreflector = unreflector;
         final List<ApplicableMethod<E>> applicableMethods = new ArrayList<>();
         for (final E method : unreflector.getDeclared(clazz)) {
-            if (!unreflector.filter(method) || !method.canAccess(null)) continue;
+            if (!Modifier.isPublic(method.getModifiers()) || !unreflector.filter(method)) continue;
             final int methodMaxArgs = getMaxArgs(method);
             if (maxArgs < methodMaxArgs) continue;
             final int methodMinArgs = getMinArgs(method);
             if (minArgs > methodMinArgs) continue;
             applicableMethods.add(new ApplicableMethod<>(method, methodMinArgs, methodMaxArgs, method.getParameterTypes()));
         }
+        if (applicableMethods.isEmpty()) {
+            throw new NoSuchMethodException(toString());
+        }
         this.applicableMethods = List.copyOf(applicableMethods);
     }
 
-    public StaticMethodLookup(Class<?> clazz, Unreflector<E> unreflector, int minArgs) {
+    public SimpleMethodLookup(Class<?> clazz, Unreflector<E> unreflector, int minArgs) throws NoSuchMethodException {
         this(clazz, unreflector, minArgs, MAX_ARGS);
     }
 
-    public StaticMethodLookup(Class<?> clazz, Unreflector<E> unreflector) {
+    public SimpleMethodLookup(Class<?> clazz, Unreflector<E> unreflector) throws NoSuchMethodException {
         this(clazz, unreflector, 0, MAX_ARGS);
     }
 
@@ -47,21 +51,22 @@ public final class StaticMethodLookup<E extends Executable> extends MethodLookup
 
     @Override
     protected MethodHandle lookup(List<Class<?>> args) throws NoSuchMethodException {
-        final int argCount = args.size();
+        final int argOffset = unreflector.getArgOffset();
+        final int argCount = args.size() - argOffset;
         final List<ApplicableMethod<E>> matches = new ArrayList<>();
         methodSearch:
         for (final ApplicableMethod<E> method : applicableMethods) {
             if (method.minimumArgs() > argCount || method.maximumArgs() < argCount) continue;
             final Class<?>[] argTypes = method.argTypes();
             for (int i = 0, l = method.minimumArgs(); i < l; i++) {
-                if (!RuntimeUtil.isAssignableFrom(argTypes[i], args.get(i))) {
+                if (!RuntimeUtil.isAssignableFrom(argTypes[i], args.get(i + argOffset))) {
                     continue methodSearch;
                 }
             }
             if (method.method().isVarArgs()) {
                 final Class<?> argType = argTypes[argTypes.length - 1].componentType();
-                for (int i = argTypes.length - 1, l = args.size(); i < l; i++) {
-                    if (!RuntimeUtil.isAssignableFrom(argType, args.get(i))) {
+                for (int i = argTypes.length - 1; i < argCount; i++) {
+                    if (!RuntimeUtil.isAssignableFrom(argType, args.get(i + argOffset))) {
                         continue methodSearch;
                     }
                 }

@@ -241,13 +241,24 @@ public class GlangCompiler {
         if (expression instanceof LiteralExpression<?> literal) {
             compileLiteral(literal);
         } else if (expression instanceof CallExpression call) {
-            compileExpression(call.getTarget());
-            if (call.getArgs().size() < 17) {
+            int argCount = call.getArgs().size();
+            if (call.getTarget() instanceof AccessExpression access) {
+                compileExpression(access.getTarget());
+                method.checkLine(expression);
+                visitor.visitInsn(Opcodes.DUP);
+                compileAccess(access.getMember(), access.getType().toMethodAccess());
+                method.checkLine(expression);
+                visitor.visitInsn(Opcodes.SWAP);
+                argCount++;
+            } else {
+                compileExpression(call.getTarget());
+            }
+            if (argCount < 17) {
                 call.getArgs().forEach(this::compileExpression);
                 method.checkLine(expression);
                 visitor.visitMethodInsn(
                     Opcodes.INVOKESTATIC, g_r_ObjectInvokers, "invokeObject",
-                    "(" + j_l_Object_DESC.repeat(call.getArgs().size() + 1) + ")" + j_l_Object_DESC,
+                    "(" + j_l_Object_DESC.repeat(argCount + 1) + ")" + j_l_Object_DESC,
                     false
                 );
             } else {
@@ -261,6 +272,25 @@ public class GlangCompiler {
             }
         } else {
             throw new UnsupportedOperationException("Unsupported ExpressionNode " + expression.getClass().getSimpleName());
+        }
+    }
+
+    private void compileAccess(String member, AccessExpression.Type type) {
+        final MethodState method = methodStates.get();
+        final MethodVisitor visitor = method.visitor;
+        visitor.visitLdcInsn(member);
+        switch (type) {
+            case METHOD -> visitor.visitMethodInsn(
+                Opcodes.INVOKESTATIC, g_r_GlangRuntime, "getInstanceMethod",
+                "(Ljava/lang/Object;Ljava/lang/String;)Lglang/runtime/lookup/MethodLookup;",
+                false
+            );
+            case DIRECT_METHOD -> visitor.visitMethodInsn(
+                Opcodes.INVOKESTATIC, g_r_GlangRuntime, "getDirectMethod",
+                "(Ljava/lang/Object;Ljava/lang/String;)Lglang/runtime/lookup/MethodLookup;",
+                false
+            );
+            default -> throw new UnsupportedOperationException("Unsupported AccessExpression " + type);
         }
     }
 

@@ -16,12 +16,20 @@ public class TestMain {
         println(args)
         args = "hi"
         test = "hello"
-        println(args)
+        println(args, test)
+        
+        var `\\0` = "interesting"
+        println(`\\0`)
+        
+        {
+            var `\\0` = "interesting2"
+            println(`\\0`)
+        }
         """;
 
     public static void main(String[] args) {
-        testCL(args);
-//        testCode(args);
+//        testCL(args);
+        testCode(args);
 //        testInvoke();
     }
 

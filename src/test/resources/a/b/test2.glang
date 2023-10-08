@@ -8,7 +8,7 @@ println(args)
 args = "hi"
 println(args)
 
-// var `\0` = "hello"
+var `\0` = "hello"
 
 // {
 // 	var a = "world"

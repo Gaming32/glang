@@ -5,10 +5,7 @@ import glang.compiler.error.CompileFailedException;
 import glang.compiler.error.ErrorCollector;
 import glang.compiler.token.*;
 import glang.compiler.tree.expression.*;
-import glang.compiler.tree.statement.BlockStatement;
-import glang.compiler.tree.statement.ExpressionStatement;
-import glang.compiler.tree.statement.ImportStatement;
-import glang.compiler.tree.statement.StatementNode;
+import glang.compiler.tree.statement.*;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -111,11 +108,14 @@ public class GlangTreeifier {
     }
 
     private StatementNode statement0() {
+        if (check(TokenType.LCURLY)) {
+            return block();
+        }
         if (check(TokenType.IMPORT)) {
             return importStatement();
         }
-        if (check(TokenType.LCURLY)) {
-            return block();
+        if (check(TokenType.VAR)) {
+            return variableDeclaration();
         }
         return expressionStatement();
     }
@@ -137,6 +137,19 @@ public class GlangTreeifier {
             parts.subList(0, parts.size() - 1), parts.get(parts.size() - 1),
             startLocation, endLocation
         );
+    }
+
+    public VariableDeclaration variableDeclaration() {
+        final SourceLocation startLocation = peek().getLocation();
+        expect(TokenType.VAR);
+        final String name = ((Token.Identifier)expect(TokenType.IDENTIFIER)).getIdentifier();
+        ExpressionNode initializer = null;
+        if (match(TokenType.EQUAL)) {
+            initializer = expression();
+        }
+        endOfStatement();
+        final SourceLocation endLocation = getSourceLocation();
+        return new VariableDeclaration(name, initializer, startLocation, endLocation);
     }
 
     private ExpressionStatement expressionStatement() {

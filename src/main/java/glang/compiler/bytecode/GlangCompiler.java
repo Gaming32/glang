@@ -3,6 +3,7 @@ package glang.compiler.bytecode;
 import glang.compiler.SourceLocation;
 import glang.compiler.error.CompileFailedException;
 import glang.compiler.error.ErrorCollector;
+import glang.compiler.token.Token;
 import glang.compiler.token.TokenType;
 import glang.compiler.tree.ASTNode;
 import glang.compiler.tree.GlangTreeifier;
@@ -11,6 +12,7 @@ import glang.compiler.tree.expression.*;
 import glang.compiler.tree.statement.BlockStatement;
 import glang.compiler.tree.statement.ExpressionStatement;
 import glang.compiler.tree.statement.StatementNode;
+import glang.compiler.tree.statement.VariableDeclaration;
 import org.objectweb.asm.*;
 
 import java.math.BigInteger;
@@ -142,13 +144,12 @@ public class GlangCompiler {
         );
         method.visitor.visitCode();
         final ScopeState scope = scopeStates.push("");
-        final VariableInfo argsVariable = new VariableInfo(0, "[Ljava/lang/String;");
+        final VariableInfo argsVariable = new VariableInfo(0);
         argsVariable.isArg = true;
         scope.variables.put("args", argsVariable);
         method.currentLocal++;
         compileRoot();
         scopeStates.pop();
-        method.currentLocal -= scope.variables.size();
         method.visitor.visitMaxs(0, 0);
         method.visitor.visitEnd();
         methodStates.pop();
@@ -229,10 +230,26 @@ public class GlangCompiler {
                 visitor.visitInsn(Opcodes.POP);
             }
         } else if (statement instanceof BlockStatement blockStatement) {
-            final ScopeState scope = scopeStates.push("block");
+            scopeStates.push("block");
             compile(blockStatement.getStatements());
             scopeStates.pop();
-            method.currentLocal -= scope.variables.size();
+        } else if (statement instanceof VariableDeclaration decl) {
+            final ScopeState scope = scopeStates.get();
+            VariableInfo variable = scope.variables.get(decl.getName());
+            if (variable != null) {
+                error(statement, "Duplicate local variable " + Token.Identifier.prettyPrint(decl.getName()));
+            } else {
+                variable = new VariableInfo(method.currentLocal++);
+                scope.variables.put(decl.getName(), variable);
+            }
+            if (decl.getInitializer() != null) {
+                compileExpression(decl.getInitializer());
+            } else {
+                method.checkLine(statement);
+                visitor.visitInsn(Opcodes.ACONST_NULL);
+            }
+            method.checkLine(statement);
+            visitor.visitVarInsn(Opcodes.ASTORE, variable.index);
         } else {
             throw new UnsupportedOperationException("Unsupported StatementNode " + statement.getClass().getSimpleName());
         }
@@ -299,10 +316,7 @@ public class GlangCompiler {
                 final VariableInfo variable = scope.variables.get(identifier.getValue());
                 if (variable != null) {
                     found = true;
-                    if (scope.owner != method) {
-                        variable.makeCaptured(identifier);
-                        error(identifier, "Cannot access scopes from other methods currently");
-                    }
+                    variable.makeNonFinal(identifier);
                     compileExpression(assignment.getValue());
                     method.checkLine(assignment);
                     visitor.visitInsn(Opcodes.DUP);
@@ -479,7 +493,12 @@ public class GlangCompiler {
         }
     }
 
-    private static class StateStack<T> {
+    private interface State {
+        default void end() {
+        }
+    }
+
+    private static class StateStack<T extends State> {
         final Function<String, T> factory;
         final Deque<T> stack = new ArrayDeque<>();
 
@@ -502,11 +521,13 @@ public class GlangCompiler {
         }
 
         T pop() {
-            return stack.removeLast();
+            final T removed = stack.removeLast();
+            removed.end();
+            return removed;
         }
     }
 
-    private static class ClassState {
+    private static class ClassState implements State {
         final String name;
         ClassVisitor visitor;
 
@@ -515,7 +536,7 @@ public class GlangCompiler {
         }
     }
 
-    private class MethodState {
+    private class MethodState implements State {
         final String name;
         final ClassState owner = classStates.get();
         MethodVisitor visitor;
@@ -537,31 +558,39 @@ public class GlangCompiler {
         }
     }
 
-    private class ScopeState {
+    private class ScopeState implements State {
         final String name;
         final MethodState owner = methodStates.get();
+        final Label startLabel = new Label();
+        final Label endLabel = new Label();
         final Map<String, VariableInfo> variables = new LinkedHashMap<>();
 
         ScopeState(String name) {
             this.name = name;
+            owner.visitor.visitLabel(startLabel);
+        }
+
+        @Override
+        public void end() {
+            owner.currentLocal -= variables.size();
+            owner.visitor.visitLabel(endLabel);
+            for (final var entry : variables.entrySet()) {
+                owner.visitor.visitLocalVariable(
+                    entry.getKey(), j_l_Object_DESC, null, startLabel, endLabel, entry.getValue().index
+                );
+            }
         }
     }
 
     private class VariableInfo {
         final int index;
-        final String descriptor;
         boolean isArg = false;
         boolean isEffectivelyFinal = true;
         boolean isForceFinal = false;
         boolean isCaptured = false;
 
-        VariableInfo(int index, String descriptor) {
-            this.index = index;
-            this.descriptor = descriptor;
-        }
-
         VariableInfo(int index) {
-            this(index, j_l_Object_DESC);
+            this.index = index;
         }
 
         void makeNonFinal(ASTNode node) {

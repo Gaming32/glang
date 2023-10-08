@@ -13,6 +13,7 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.math.BigInteger;
 import java.util.*;
 
 public final class GlangRuntime {
@@ -126,6 +127,19 @@ public final class GlangRuntime {
         }
         if (obj instanceof Boolean b) {
             return b;
+        }
+        if (obj instanceof Integer i) {
+            return i != 0;
+        }
+        if (obj instanceof Long l) {
+            return l != 0L;
+        }
+        if (obj instanceof BigInteger i) {
+            return !i.equals(BigInteger.ZERO);
+        }
+        if (obj instanceof Number n) {
+            final double dValue = n.doubleValue();
+            return dValue != 0.0 && !Double.isNaN(dValue);
         }
         if (obj instanceof String s) {
             return !s.isEmpty();

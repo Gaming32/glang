@@ -15,10 +15,6 @@ import java.util.Set;
 import java.util.function.IntFunction;
 
 public class GlangTreeifier {
-    private static final List<Class<? extends StatementNode>> BLOCKED_BODY_STATEMENTS = List.of(
-        ImportStatement.class, VariableDeclaration.class
-    );
-
     private final Token[] tokens;
     private final ErrorCollector errorCollector;
     private final Token eof;
@@ -162,7 +158,9 @@ public class GlangTreeifier {
     private IfStatement ifStatement() {
         expect(TokenType.IF);
         final SourceLocation startLocation = getSourceLocation();
+        expect(TokenType.LPAREN);
         final ExpressionNode condition = expression();
+        expect(TokenType.RPAREN);
         final StatementNode body = conditionalBody("if");
         final StatementNode elseBody;
         if (match(TokenType.ELSE)) {
@@ -175,11 +173,10 @@ public class GlangTreeifier {
     }
 
     private StatementNode conditionalBody(String statementType) {
+        final SourceLocation location = peek().getLocation();
         final StatementNode body = statement();
-        for (final var blocked : BLOCKED_BODY_STATEMENTS) {
-            if (blocked.isInstance(body)) {
-                errorSafe("Statement not allowed in " + statementType + " body");
-            }
+        if (IfStatement.isBlockedBody(body)) {
+            errorCollector.addError("Statement not allowed in " + statementType + " body", location);
         }
         return body;
     }

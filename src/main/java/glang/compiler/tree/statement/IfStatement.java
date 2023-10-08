@@ -4,7 +4,13 @@ import glang.compiler.SourceLocation;
 import glang.compiler.tree.expression.ExpressionNode;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.List;
+
 public class IfStatement extends StatementNode {
+    private static final List<Class<? extends StatementNode>> BLOCKED_BODY_STATEMENTS = List.of(
+        ImportStatement.class, VariableDeclaration.class
+    );
+
     private final ExpressionNode condition;
     private final StatementNode body;
     @Nullable
@@ -59,5 +65,14 @@ public class IfStatement extends StatementNode {
             result.append("\n").append(" ".repeat(newIndent));
             body.print(result, newIndent, indent);
         }
+    }
+
+    public static boolean isBlockedBody(StatementNode body) {
+        for (final var blocked : IfStatement.BLOCKED_BODY_STATEMENTS) {
+            if (blocked.isInstance(body)) {
+                return true;
+            }
+        }
+        return false;
     }
 }

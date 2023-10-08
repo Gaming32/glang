@@ -9,10 +9,7 @@ import glang.compiler.tree.ASTNode;
 import glang.compiler.tree.GlangTreeifier;
 import glang.compiler.tree.StatementList;
 import glang.compiler.tree.expression.*;
-import glang.compiler.tree.statement.BlockStatement;
-import glang.compiler.tree.statement.ExpressionStatement;
-import glang.compiler.tree.statement.StatementNode;
-import glang.compiler.tree.statement.VariableDeclaration;
+import glang.compiler.tree.statement.*;
 import org.objectweb.asm.*;
 
 import java.math.BigInteger;
@@ -250,6 +247,37 @@ public class GlangCompiler {
             }
             method.checkLine(statement);
             visitor.visitVarInsn(Opcodes.ASTORE, variable.index);
+        } else if (statement instanceof IfStatement ifStatement) {
+            final Label mainBodyEnd = new Label();
+            final Label elseEnd = new Label();
+
+            compileExpression(ifStatement.getCondition());
+            method.checkLine(ifStatement);
+            visitor.visitMethodInsn(
+                Opcodes.INVOKESTATIC, g_r_GlangRuntime, "isTruthy",
+                "(Ljava/lang/Object;)Z",
+                false
+            );
+            visitor.visitJumpInsn(Opcodes.IFEQ, mainBodyEnd);
+
+            if (IfStatement.isBlockedBody(ifStatement.getBody())) {
+                error(ifStatement.getBody(), "Statement not allowed in if body");
+            } else {
+                compileStatement(ifStatement.getBody());
+            }
+            if (ifStatement.getElseBody() != null) {
+                visitor.visitJumpInsn(Opcodes.GOTO, elseEnd);
+            }
+            visitor.visitLabel(mainBodyEnd);
+
+            if (ifStatement.getElseBody() != null) {
+                if (IfStatement.isBlockedBody(ifStatement.getElseBody())) {
+                    error(ifStatement.getElseBody(), "Statement not allowed in else body");
+                } else {
+                    compileStatement(ifStatement.getElseBody());
+                }
+                visitor.visitLabel(elseEnd);
+            }
         } else {
             error(statement, "StatementNode " + statement.getClass().getSimpleName() + " not supported");
         }

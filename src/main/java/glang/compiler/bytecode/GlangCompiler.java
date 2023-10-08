@@ -3,6 +3,7 @@ package glang.compiler.bytecode;
 import glang.compiler.SourceLocation;
 import glang.compiler.error.CompileFailedException;
 import glang.compiler.error.ErrorCollector;
+import glang.compiler.token.TokenType;
 import glang.compiler.tree.ASTNode;
 import glang.compiler.tree.GlangTreeifier;
 import glang.compiler.tree.StatementList;
@@ -28,7 +29,7 @@ public class GlangCompiler {
     private static final String g_r_GlangRuntime = "glang/runtime/GlangRuntime";
     private static final String g_r_ObjectInvokers = "glang/runtime/ObjectInvokers";
 
-    private static final String GLOBALS = "GLOBALS";
+    private static final String GLOBALS = "$$GLOBALS$$";
     private static final String GLOBALS_DESC = "Ljava/util/Map;";
     private static final String GLOBALS_SIG = "Ljava/util/Map<Ljava/lang/String;Ljava/lang/Object;>;";
 
@@ -144,8 +145,10 @@ public class GlangCompiler {
         final VariableInfo argsVariable = new VariableInfo(0, "[Ljava/lang/String;");
         argsVariable.isArg = true;
         scope.variables.put("args", argsVariable);
+        method.currentLocal++;
         compileRoot();
         scopeStates.pop();
+        method.currentLocal -= scope.variables.size();
         method.visitor.visitMaxs(0, 0);
         method.visitor.visitEnd();
         methodStates.pop();
@@ -226,9 +229,10 @@ public class GlangCompiler {
                 visitor.visitInsn(Opcodes.POP);
             }
         } else if (statement instanceof BlockStatement blockStatement) {
-            scopeStates.push("block");
+            final ScopeState scope = scopeStates.push("block");
             compile(blockStatement.getStatements());
             scopeStates.pop();
+            method.currentLocal -= scope.variables.size();
         } else {
             throw new UnsupportedOperationException("Unsupported StatementNode " + statement.getClass().getSimpleName());
         }
@@ -273,8 +277,53 @@ public class GlangCompiler {
             compileExpression(access.getTarget());
             method.checkLine(expression);
             compileAccess(access.getMember(), access.getType());
+        } else if (expression instanceof AssignmentExpression assignment) {
+            compileAssignment(assignment);
         } else {
             throw new UnsupportedOperationException("Unsupported ExpressionNode " + expression.getClass().getSimpleName());
+        }
+    }
+
+    private void compileAssignment(AssignmentExpression assignment) {
+        final MethodState method = methodStates.get();
+        final MethodVisitor visitor = method.visitor;
+        if (!(assignment.getVariable() instanceof AssignableExpression)) {
+            throw new IllegalArgumentException(assignment.getVariable() + " is not assignable!");
+        }
+        if (assignment.getOperator() != TokenType.EQUAL) {
+            throw new UnsupportedOperationException("Only = is supported for AssignmentExpression currently");
+        }
+        if (assignment.getVariable() instanceof IdentifierExpression identifier) {
+            boolean found = false;
+            for (final ScopeState scope : (Iterable<ScopeState>)scopeStates.stack::descendingIterator) {
+                final VariableInfo variable = scope.variables.get(identifier.getValue());
+                if (variable != null) {
+                    found = true;
+                    if (scope.owner != method) {
+                        variable.makeCaptured(identifier);
+                        error(identifier, "Cannot access scopes from other methods currently");
+                    }
+                    compileExpression(assignment.getValue());
+                    method.checkLine(assignment);
+                    visitor.visitInsn(Opcodes.DUP);
+                    visitor.visitVarInsn(Opcodes.ASTORE, variable.index);
+                    break;
+                }
+            }
+            if (!found) {
+                method.checkLine(assignment);
+                visitor.visitFieldInsn(Opcodes.GETSTATIC, classNameInternal, GLOBALS, GLOBALS_DESC);
+                visitor.visitLdcInsn(identifier.getValue());
+                compileExpression(assignment.getValue());
+                method.checkLine(assignment);
+                visitor.visitMethodInsn(
+                    Opcodes.INVOKESTATIC, g_r_GlangRuntime, "putGlobal",
+                    "(Ljava/util/Map;Ljava/lang/String;Ljava/lang/Object;)Ljava/lang/Object;",
+                    false
+                );
+            }
+        } else {
+            throw new UnsupportedOperationException("Unsupported AssignmentExpression to " + assignment.getVariable().getClass().getSimpleName());
         }
     }
 
@@ -368,15 +417,30 @@ public class GlangCompiler {
                 throw new UnsupportedOperationException("Unsupported Number " + literal.getClass().getSimpleName());
             }
         } else if (literal instanceof IdentifierExpression identifier) {
-            method.checkLine(literal);
-            // TODO: Local variables
-            visitor.visitFieldInsn(Opcodes.GETSTATIC, classNameInternal, GLOBALS, GLOBALS_DESC);
-            visitor.visitLdcInsn(identifier.getValue());
-            visitor.visitMethodInsn(
-                Opcodes.INVOKESTATIC, g_r_GlangRuntime, "getGlobal",
-                "(Ljava/util/Map;Ljava/lang/String;)Ljava/lang/Object;",
-                false
-            );
+            boolean found = false;
+            for (final ScopeState scope : (Iterable<ScopeState>)scopeStates.stack::descendingIterator) {
+                final VariableInfo variable = scope.variables.get(identifier.getValue());
+                if (variable != null) {
+                    found = true;
+                    if (scope.owner != method) {
+                        variable.makeCaptured(identifier);
+                        error(identifier, "Cannot access scopes from other methods currently");
+                    }
+                    method.checkLine(literal);
+                    visitor.visitVarInsn(Opcodes.ALOAD, variable.index);
+                    break;
+                }
+            }
+            if (!found) {
+                method.checkLine(literal);
+                visitor.visitFieldInsn(Opcodes.GETSTATIC, classNameInternal, GLOBALS, GLOBALS_DESC);
+                visitor.visitLdcInsn(identifier.getValue());
+                visitor.visitMethodInsn(
+                    Opcodes.INVOKESTATIC, g_r_GlangRuntime, "getGlobal",
+                    "(Ljava/util/Map;Ljava/lang/String;)Ljava/lang/Object;",
+                    false
+                );
+            }
         } else if (literal instanceof NullExpression) {
             method.checkLine(literal);
             visitor.visitInsn(Opcodes.ACONST_NULL);
@@ -456,6 +520,7 @@ public class GlangCompiler {
         final ClassState owner = classStates.get();
         MethodVisitor visitor;
         int currentLine = -1;
+        int currentLocal = 0;
 
         MethodState(String name) {
             this.name = name;

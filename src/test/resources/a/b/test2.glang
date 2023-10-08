@@ -1,5 +1,15 @@
-println("hi".length())
-println(String.format("%s", 5))
-println(String.!getName())
-println(String::format)
+// println("hi".length())
+// println(String.format("%s", 5))
+// println(String.!getName())
+// println(String::format)
 // println(String.format)
+
+println(args)
+args = "hi"
+println(args)
+
+// var `\0` = "hello"
+
+// {
+// 	var a = "world"
+// }

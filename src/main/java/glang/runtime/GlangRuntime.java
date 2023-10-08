@@ -36,6 +36,11 @@ public final class GlangRuntime {
         return value;
     }
 
+    public static Object putGlobal(Map<String, Object> globals, String name, Object value) {
+        globals.put(name, value);
+        return value;
+    }
+
     @SuppressWarnings("unchecked")
     public static <T> SimpleMethodLookup<Constructor<T>> findConstructors(Class<T> clazz) {
         return (SimpleMethodLookup<Constructor<T>>)(SimpleMethodLookup<?>)CONSTRUCTOR_CACHE.get(clazz);

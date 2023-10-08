@@ -8,6 +8,7 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.Arrays;
 import java.util.Set;
+import java.util.concurrent.CompletionException;
 import java.util.stream.Collectors;
 
 public final class InstanceMethodLookup {
@@ -54,16 +55,25 @@ public final class InstanceMethodLookup {
         return forClass ? STATIC_CACHE.get(clazz) : INSTANCE_CACHE.get(clazz);
     }
 
-    public MethodLookup getLookup(String methodName, boolean requireDirect) {
-        if (forClass) {
-            if (requireDirect) {
-                return CLASS_LOOKUP.get(methodName);
+    public MethodLookup getLookup(String methodName, boolean requireDirect) throws NoSuchMethodException {
+        try {
+            if (forClass) {
+                if (requireDirect) {
+                    return CLASS_LOOKUP.get(methodName);
+                }
+                MethodLookup result = lookup.get(methodName);
+                if (result == null) {
+                    return CLASS_LOOKUP.get(methodName);
+                }
+                return result;
+            } else {
+                return lookup.get(methodName);
             }
-            MethodLookup result = lookup.get(methodName);
-            if (result == null) {
-                return CLASS_LOOKUP.get(methodName);
+        } catch (CompletionException e) {
+            if (e.getCause() instanceof NoSuchMethodException e1) {
+                throw e1;
             }
+            throw e;
         }
-        return lookup.get(methodName);
     }
 }

@@ -182,7 +182,7 @@ public class GlangCompiler {
         } else if (node instanceof StatementList list) {
             list.getStatements().forEach(this::compileStatement);
         } else {
-            throw new UnsupportedOperationException("Unsupported ASTNode " + node.getClass().getSimpleName());
+            error(node, "ASTNode " + node.getClass().getSimpleName() + " not supported");
         }
     }
 
@@ -251,7 +251,7 @@ public class GlangCompiler {
             method.checkLine(statement);
             visitor.visitVarInsn(Opcodes.ASTORE, variable.index);
         } else {
-            throw new UnsupportedOperationException("Unsupported StatementNode " + statement.getClass().getSimpleName());
+            error(statement, "StatementNode " + statement.getClass().getSimpleName() + " not supported");
         }
     }
 
@@ -267,9 +267,9 @@ public class GlangCompiler {
                 compileExpression(access.getTarget());
                 method.checkLine(expression);
                 visitor.visitInsn(Opcodes.DUP);
-                compileAccess(access.getMember(), access.getType().toMethodAccess());
+                compileAccess(access, access.getType().toMethodAccess());
                 visitor.visitInsn(Opcodes.SWAP);
-                argCount++;
+                argCount++; // TODO: I think this will break if argCount > 16
             } else {
                 compileExpression(call.getTarget());
             }
@@ -293,11 +293,13 @@ public class GlangCompiler {
         } else if (expression instanceof AccessExpression access) {
             compileExpression(access.getTarget());
             method.checkLine(expression);
-            compileAccess(access.getMember(), access.getType());
+            compileAccess(access, access.getType());
         } else if (expression instanceof AssignmentExpression assignment) {
             compileAssignment(assignment);
         } else {
-            throw new UnsupportedOperationException("Unsupported ExpressionNode " + expression.getClass().getSimpleName());
+            error(expression, "ExpressionNode " + expression.getClass().getSimpleName() + " not supported");
+            method.checkLine(expression);
+            visitor.visitInsn(Opcodes.ACONST_NULL);
         }
     }
 
@@ -308,7 +310,9 @@ public class GlangCompiler {
             throw new IllegalArgumentException(assignment.getVariable() + " is not assignable!");
         }
         if (assignment.getOperator() != TokenType.EQUAL) {
-            throw new UnsupportedOperationException("Only = is supported for AssignmentExpression currently");
+            error(assignment, "Only = is supported for AssignmentExpression currently");
+            compileExpression(assignment.getValue());
+            return;
         }
         if (assignment.getVariable() instanceof IdentifierExpression identifier) {
             boolean found = false;
@@ -337,14 +341,16 @@ public class GlangCompiler {
                 );
             }
         } else {
-            throw new UnsupportedOperationException("Unsupported AssignmentExpression to " + assignment.getVariable().getClass().getSimpleName());
+            error(assignment, "AssignmentExpression to " + assignment.getVariable().getClass().getSimpleName() + " not supported");
+            compileExpression(assignment.getValue());
         }
     }
 
-    private void compileAccess(String member, AccessExpression.Type type) {
+    private void compileAccess(AccessExpression access, AccessExpression.Type type) {
         final MethodState method = methodStates.get();
         final MethodVisitor visitor = method.visitor;
-        visitor.visitLdcInsn(member);
+        method.checkLine(access);
+        visitor.visitLdcInsn(access.getMember());
         switch (type) {
             case METHOD -> visitor.visitMethodInsn(
                 Opcodes.INVOKESTATIC, g_r_GlangRuntime, "getInstanceMethod",
@@ -356,7 +362,11 @@ public class GlangCompiler {
                 "(Ljava/lang/Object;Ljava/lang/String;)Lglang/runtime/lookup/MethodLookup;",
                 false
             );
-            default -> throw new UnsupportedOperationException("Unsupported AccessExpression " + type);
+            default -> {
+                error(access, "AccessExpression " + type + " not supported");
+                method.checkLine(access);
+                visitor.visitInsn(Opcodes.POP);
+            }
         }
     }
 
@@ -428,7 +438,9 @@ public class GlangCompiler {
                     bigInteger.toString()
                 ));
             } else {
-                throw new UnsupportedOperationException("Unsupported Number " + literal.getClass().getSimpleName());
+                error(literal, "Number " + literal.getClass().getSimpleName() + " not supported");
+                method.checkLine(literal);
+                visitor.visitInsn(Opcodes.ACONST_NULL);
             }
         } else if (literal instanceof IdentifierExpression identifier) {
             boolean found = false;
@@ -459,7 +471,9 @@ public class GlangCompiler {
             method.checkLine(literal);
             visitor.visitInsn(Opcodes.ACONST_NULL);
         } else {
-            throw new UnsupportedOperationException("Unsupported LiteralExpression " + literal.getClass().getSimpleName());
+            error(literal, "LiteralExpression " + literal.getClass().getSimpleName() + " not supported");
+            method.checkLine(literal);
+            visitor.visitInsn(Opcodes.ACONST_NULL);
         }
     }
 

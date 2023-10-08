@@ -13,18 +13,9 @@ import java.util.Map;
 
 public class TestMain {
     private static final String SOURCE = """
-        println(args)
-        args = "hi"
-        test = "hello"
-        println(args, test)
-        
-        var `\\0` = "interesting"
-        println(`\\0`)
-        
-        {
-            var `\\0` = "interesting2"
-            println(`\\0`)
-        }
+        if 1 {
+            println("hi")
+        } else println("bye")
         """;
 
     public static void main(String[] args) {

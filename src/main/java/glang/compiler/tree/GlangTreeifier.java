@@ -15,6 +15,10 @@ import java.util.Set;
 import java.util.function.IntFunction;
 
 public class GlangTreeifier {
+    private static final List<Class<? extends StatementNode>> BLOCKED_BODY_STATEMENTS = List.of(
+        ImportStatement.class, VariableDeclaration.class
+    );
+
     private final Token[] tokens;
     private final ErrorCollector errorCollector;
     private final Token eof;
@@ -117,6 +121,9 @@ public class GlangTreeifier {
         if (check(TokenType.VAR)) {
             return variableDeclaration();
         }
+        if (check(TokenType.IF)) {
+            return ifStatement();
+        }
         return expressionStatement();
     }
 
@@ -139,9 +146,9 @@ public class GlangTreeifier {
         );
     }
 
-    public VariableDeclaration variableDeclaration() {
-        final SourceLocation startLocation = peek().getLocation();
+    private VariableDeclaration variableDeclaration() {
         expect(TokenType.VAR);
+        final SourceLocation startLocation = getSourceLocation();
         final String name = ((Token.Identifier)expect(TokenType.IDENTIFIER)).getIdentifier();
         ExpressionNode initializer = null;
         if (match(TokenType.EQUAL)) {
@@ -150,6 +157,31 @@ public class GlangTreeifier {
         endOfStatement();
         final SourceLocation endLocation = getSourceLocation();
         return new VariableDeclaration(name, initializer, startLocation, endLocation);
+    }
+
+    private IfStatement ifStatement() {
+        expect(TokenType.IF);
+        final SourceLocation startLocation = getSourceLocation();
+        final ExpressionNode condition = expression();
+        final StatementNode body = conditionalBody("if");
+        final StatementNode elseBody;
+        if (match(TokenType.ELSE)) {
+            elseBody = conditionalBody("else");
+        } else {
+            elseBody = null;
+        }
+        final SourceLocation endLocation = getSourceLocation();
+        return new IfStatement(condition, body, elseBody, startLocation, endLocation);
+    }
+
+    private StatementNode conditionalBody(String statementType) {
+        final StatementNode body = statement();
+        for (final var blocked : BLOCKED_BODY_STATEMENTS) {
+            if (blocked.isInstance(body)) {
+                errorSafe("Statement not allowed in " + statementType + " body");
+            }
+        }
+        return body;
     }
 
     private ExpressionStatement expressionStatement() {

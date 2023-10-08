@@ -103,7 +103,7 @@ public final class GlangRuntime {
         return obj != null ? obj.getClass() : Void.class;
     }
 
-    public static MethodLookup getInstanceMethod(Object obj, String name, boolean requireDirect) {
+    public static MethodLookup getInstanceMethod(Object obj, String name, boolean requireDirect) throws NoSuchMethodException {
         if (obj == null) {
             throw new NullPointerException("Cannot invoke method " + name + " on null");
         }
@@ -112,11 +112,36 @@ public final class GlangRuntime {
             .getLookup(name, requireDirect);
     }
 
-    public static MethodLookup getInstanceMethod(Object obj, String name) {
+    public static MethodLookup getInstanceMethod(Object obj, String name) throws NoSuchMethodException {
         return getInstanceMethod(obj, name, false);
     }
 
-    public static MethodLookup getDirectMethod(Object obj, String name) {
+    public static MethodLookup getDirectMethod(Object obj, String name) throws NoSuchMethodException {
         return getInstanceMethod(obj, name, true);
+    }
+
+    public static boolean isTruthy(Object obj) throws Throwable {
+        if (obj == null) {
+            return false;
+        }
+        if (obj instanceof Boolean b) {
+            return b;
+        }
+        if (obj instanceof String s) {
+            return !s.isEmpty();
+        }
+        if (obj instanceof Collection<?> c) {
+            return !c.isEmpty();
+        }
+        if (obj instanceof Map<?, ?> m) {
+            return !m.isEmpty();
+        }
+        final MethodLookup booleanValue;
+        try {
+            booleanValue = getInstanceMethod(obj, "booleanValue");
+        } catch (NoSuchMethodException e) {
+            return true;
+        }
+        return (boolean)booleanValue.invoke();
     }
 }

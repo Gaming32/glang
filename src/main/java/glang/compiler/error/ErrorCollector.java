@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.function.IntFunction;
+import java.util.stream.Collectors;
 
 public class ErrorCollector {
     private final List<CompileError> errors = new ArrayList<>();
@@ -45,5 +46,16 @@ public class ErrorCollector {
         if (!errors.isEmpty()) {
             throw new CompileFailedException(errors);
         }
+    }
+
+    @Override
+    public String toString() {
+        return errorsToString(errors);
+    }
+
+    public static String errorsToString(List<CompileError> errors) {
+        final String pluralSuffix = errors.size() != 1 ? "s" : "";
+        return "Compilation failed with " + errors.size() + " error" + pluralSuffix + "\n\n" +
+            errors.stream().map(CompileError::createMessage).collect(Collectors.joining("\n\n"));
     }
 }

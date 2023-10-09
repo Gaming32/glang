@@ -13,11 +13,14 @@ import java.util.Map;
 
 public class TestMain {
     private static final String SOURCE = """
-        var values = Class.forName("java.util.List").of(1, 2, 3, 4, 5)
+        var values = Class.forName("java.util.List").of("aaaa", "aaa", "aa", "a", "", "b", "bb", "bbb", "bbbb")
         var it = values.iterator()
         while (it.hasNext()) {
-            println(it.next())
+            var value = it.next()
+            println(value)
+            if (value) {} else break
         }
+        println("done")
         """;
 
     public static void main(String[] args) {

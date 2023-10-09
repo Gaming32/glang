@@ -61,6 +61,11 @@ public abstract class MethodLookup {
                 return clazz.getDeclaredConstructors();
             }
 
+            @Override
+            public boolean supportsOverride() {
+                return false;
+            }
+
             @Nullable
             @Override
             public Constructor<?> findEquivalentIn(Class<?> clazz, Constructor<?> of) {
@@ -90,6 +95,11 @@ public abstract class MethodLookup {
                 @Override
                 public Method[] getDeclared(Class<?> clazz) {
                     return isStatic ? clazz.getDeclaredMethods() : clazz.getMethods();
+                }
+
+                @Override
+                public boolean supportsOverride() {
+                    return !isStatic;
                 }
 
                 @Nullable
@@ -126,6 +136,8 @@ public abstract class MethodLookup {
         }
 
         E[] getDeclared(Class<?> clazz);
+
+        boolean supportsOverride();
 
         @Nullable
         E findEquivalentIn(Class<?> clazz, E of);

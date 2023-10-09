@@ -142,10 +142,10 @@ public class GlangCompiler {
         );
         method.visitor.visitCode();
         final ScopeState scope = scopeStates.push("");
-        final VariableInfo argsVariable = new VariableInfo(0);
+        final VariableInfo argsVariable = new VariableInfo(method.currentLocal++);
         argsVariable.isArg = true;
         scope.variables.put("args", argsVariable);
-        method.currentLocal++;
+        method.visitor.visitLabel(argsVariable.startLabel);
         compileRoot();
         scopeStates.pop();
         method.visitor.visitMaxs(0, 0);
@@ -234,11 +234,13 @@ public class GlangCompiler {
         } else if (statement instanceof VariableDeclaration decl) {
             final ScopeState scope = scopeStates.get();
             VariableInfo variable = scope.variables.get(decl.getName());
+            boolean isNew = false;
             if (variable != null) {
                 error(statement, "Duplicate local variable " + Token.Identifier.prettyPrint(decl.getName()));
             } else {
                 variable = new VariableInfo(method.currentLocal++);
                 scope.variables.put(decl.getName(), variable);
+                isNew = true;
             }
             if (decl.getInitializer() != null) {
                 compileExpression(decl.getInitializer());
@@ -248,6 +250,9 @@ public class GlangCompiler {
             }
             method.checkLine(statement);
             visitor.visitVarInsn(Opcodes.ASTORE, variable.index);
+            if (isNew) {
+                visitor.visitLabel(variable.startLabel);
+            }
         } else if (statement instanceof IfOrWhileStatement ifOrWhileStatement) {
             final Label conditionStart = new Label();
             final Label mainBodyEnd = new Label();
@@ -694,7 +699,9 @@ public class GlangCompiler {
             owner.visitor.visitLabel(endLabel);
             for (final var entry : variables.entrySet()) {
                 owner.visitor.visitLocalVariable(
-                    entry.getKey(), j_l_Object_DESC, null, startLabel, endLabel, entry.getValue().index
+                    entry.getKey(), j_l_Object_DESC, null,
+                    entry.getValue().startLabel, endLabel,
+                    entry.getValue().index
                 );
             }
         }
@@ -702,6 +709,7 @@ public class GlangCompiler {
 
     private class VariableInfo {
         final int index;
+        final Label startLabel = new Label();
         boolean isArg = false;
         boolean isEffectivelyFinal = true;
         boolean isForceFinal = false;

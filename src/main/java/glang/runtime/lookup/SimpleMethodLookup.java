@@ -82,11 +82,13 @@ public class SimpleMethodLookup<E extends Executable> extends MethodLookup {
     private MethodHandle adapt(ApplicableMethod<E> method, List<Class<?>> args) throws NoSuchMethodException {
         final E rMethod = method.method();
 
-        MethodHandle handle;
+        MethodHandle handle = null;
         try {
             handle = unreflector.unreflect(LOOKUP, rMethod);
         } catch (IllegalAccessException e) {
-            handle = findAccessibleSlow(unreflector, rMethod);
+            if (unreflector.supportsOverride()) {
+                handle = findAccessibleSlow(unreflector, rMethod);
+            }
             if (handle == null) {
                 final NoSuchMethodException e2 = new NoSuchMethodException("Cannot access " + rMethod);
                 e2.initCause(e);

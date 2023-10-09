@@ -120,6 +120,12 @@ public class GlangTreeifier {
         if (check(TokenType.WHILE)) {
             return ifOrWhileStatement(true);
         }
+        if (match(TokenType.BREAK)) {
+            return new LoopJumpStatement(false, getSourceLocation());
+        }
+        if (match(TokenType.CONTINUE)) {
+            return new LoopJumpStatement(true, getSourceLocation());
+        }
         return expressionStatement();
     }
 

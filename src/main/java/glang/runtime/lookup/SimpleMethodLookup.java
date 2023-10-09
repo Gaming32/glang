@@ -2,14 +2,13 @@ package glang.runtime.lookup;
 
 import glang.runtime.OptionalParameter;
 import glang.runtime.RuntimeUtil;
+import org.jetbrains.annotations.Nullable;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.reflect.Executable;
 import java.lang.reflect.Modifier;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
+import java.util.*;
 
 public class SimpleMethodLookup<E extends Executable> extends MethodLookup {
     public static final int MAX_ARGS = 255; // Maybe increase this?
@@ -87,9 +86,12 @@ public class SimpleMethodLookup<E extends Executable> extends MethodLookup {
         try {
             handle = unreflector.unreflect(LOOKUP, rMethod);
         } catch (IllegalAccessException e) {
-            final NoSuchMethodException e2 = new NoSuchMethodException("Cannot access " + rMethod);
-            e2.initCause(e);
-            throw e2;
+            handle = findAccessibleSlow(unreflector, rMethod);
+            if (handle == null) {
+                final NoSuchMethodException e2 = new NoSuchMethodException("Cannot access " + rMethod);
+                e2.initCause(e);
+                throw e2;
+            }
         }
 
         final int argOffset = unreflector.getArgOffset();
@@ -156,5 +158,35 @@ public class SimpleMethodLookup<E extends Executable> extends MethodLookup {
 
     private static int getMaxArgs(Executable method) {
         return method.isVarArgs() ? MAX_ARGS : method.getParameterCount();
+    }
+
+    @Nullable
+    private static <E extends Executable> MethodHandle findAccessibleSlow(Unreflector<E> unreflector, E method) {
+        final Set<Class<?>> searched = new HashSet<>();
+        final Queue<Class<?>> toSearch = new ArrayDeque<>();
+        addParents(searched, toSearch, method.getDeclaringClass());
+        while (!toSearch.isEmpty()) {
+            final Class<?> next = toSearch.remove();
+            final E searchMethod = unreflector.findEquivalentIn(next, method);
+            if (searchMethod != null) {
+                try {
+                    return unreflector.unreflect(LOOKUP, searchMethod);
+                } catch (IllegalAccessException ignored) {
+                }
+            }
+            addParents(searched, toSearch, next);
+        }
+        return null;
+    }
+
+    private static void addParents(Set<Class<?>> searched, Collection<Class<?>> toSearch, Class<?> add) {
+        if (add.getSuperclass() != null && searched.add(add.getSuperclass())) {
+            toSearch.add(add.getSuperclass());
+        }
+        for (final Class<?> intf : add.getInterfaces()) {
+            if (searched.add(intf)) {
+                toSearch.add(intf);
+            }
+        }
     }
 }

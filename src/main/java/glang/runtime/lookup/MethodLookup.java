@@ -4,6 +4,7 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.CaffeineSpec;
 import com.github.benmanes.caffeine.cache.LoadingCache;
 import glang.runtime.GlangRuntime;
+import org.jetbrains.annotations.Nullable;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
@@ -60,6 +61,16 @@ public abstract class MethodLookup {
                 return clazz.getDeclaredConstructors();
             }
 
+            @Nullable
+            @Override
+            public Constructor<?> findEquivalentIn(Class<?> clazz, Constructor<?> of) {
+                try {
+                    return clazz.getDeclaredConstructor(of.getParameterTypes());
+                } catch (NoSuchMethodException ignored) {
+                    return null;
+                }
+            }
+
             @Override
             public String getName(Class<?> clazz) {
                 return clazz.getCanonicalName();
@@ -79,6 +90,16 @@ public abstract class MethodLookup {
                 @Override
                 public Method[] getDeclared(Class<?> clazz) {
                     return isStatic ? clazz.getDeclaredMethods() : clazz.getMethods();
+                }
+
+                @Nullable
+                @Override
+                public Method findEquivalentIn(Class<?> clazz, Method of) {
+                    try {
+                        return clazz.getDeclaredMethod(of.getName(), of.getParameterTypes());
+                    } catch (NoSuchMethodException ignored) {
+                        return null;
+                    }
                 }
 
                 @Override
@@ -105,6 +126,9 @@ public abstract class MethodLookup {
         }
 
         E[] getDeclared(Class<?> clazz);
+
+        @Nullable
+        E findEquivalentIn(Class<?> clazz, E of);
 
         String getName(Class<?> clazz);
 

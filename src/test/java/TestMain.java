@@ -1,6 +1,5 @@
 import glang.compiler.bytecode.GlangCompiler;
 import glang.compiler.error.CompileFailedException;
-import glang.runtime.DefaultImports;
 import glang.runtime.cl.GlangClassLoader;
 import org.objectweb.asm.ClassWriter;
 
@@ -13,15 +12,12 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class TestMain {
-    public String aField = "Hi";
-
     private static final String SOURCE = """
-        var value = TestMain()
-        println(value.aField)
-        println(value.aField = "bye")
-        println(value.aField)
-        value.aField = "cry"
-        println(value.aField)
+        var values = Class.forName("java.util.List").of(1, 2, 3, 4, 5)
+        var it = values.iterator()
+        while (it.hasNext()) {
+            println(it.next())
+        }
         """;
 
     public static void main(String[] args) {
@@ -71,8 +67,6 @@ public class TestMain {
                 throw new UncheckedIOException(e);
             }
         });
-
-        DefaultImports.getDefaultImports().put("TestMain", TestMain.class);
 
         final ClassLoader cl = new ClassLoader() {
             @Override

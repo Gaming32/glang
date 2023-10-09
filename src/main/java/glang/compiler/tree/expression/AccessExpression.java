@@ -43,22 +43,28 @@ public class AccessExpression extends ExpressionNode implements AssignableExpres
     }
 
     public enum Type {
-        SIMPLE("."),
-        DIRECT(".!"),
-        METHOD("::"),
-        DIRECT_METHOD("::!");
+        SIMPLE(".", false),
+        DIRECT(".!", false),
+        METHOD("::", true),
+        DIRECT_METHOD("::!", true);
 
         public static final Map<String, Type> BY_TEXT = Arrays.stream(values())
             .collect(Collectors.toUnmodifiableMap(Type::getText, Function.identity()));
 
         private final String text;
+        private final boolean methodAccess;
 
-        Type(String text) {
+        Type(String text, boolean methodAccess) {
             this.text = text;
+            this.methodAccess = methodAccess;
         }
 
         public String getText() {
             return text;
+        }
+
+        public boolean isMethodAccess() {
+            return methodAccess;
         }
 
         @Override

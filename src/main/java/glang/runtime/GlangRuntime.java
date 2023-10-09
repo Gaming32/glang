@@ -5,6 +5,7 @@ import com.github.benmanes.caffeine.cache.CaffeineSpec;
 import com.github.benmanes.caffeine.cache.LoadingCache;
 import glang.exception.UninvokableObjectException;
 import glang.exception.UnknownGlobalException;
+import glang.runtime.lookup.FieldLookup;
 import glang.runtime.lookup.InstanceMethodLookup;
 import glang.runtime.lookup.MethodLookup;
 import glang.runtime.lookup.SimpleMethodLookup;
@@ -119,6 +120,25 @@ public final class GlangRuntime {
 
     public static MethodLookup getDirectMethod(Object obj, String name) throws NoSuchMethodException {
         return getInstanceMethod(obj, name, true);
+    }
+
+    public static FieldLookup getFieldLookup(Object obj) {
+        final boolean isClass = obj instanceof Class<?>;
+        return FieldLookup.get(isClass ? (Class<?>)obj : obj.getClass(), isClass);
+    }
+
+    public static Object getField(Object obj, String name) throws Throwable {
+        if (obj == null) {
+            throw new NullPointerException("Cannot get field " + name + " on null");
+        }
+        return getFieldLookup(obj).get(obj, name);
+    }
+
+    public static Object setField(Object obj, String name, Object value) throws Throwable {
+        if (obj == null) {
+            throw new NullPointerException("Cannot set field " + name + " on null");
+        }
+        return getFieldLookup(obj).set(obj, name, value);
     }
 
     public static boolean isTruthy(Object obj) throws Throwable {

@@ -386,9 +386,6 @@ public class GlangCompiler {
     private void compileAssignment(AssignmentExpression assignment) {
         final MethodState method = methodStates.get();
         final MethodVisitor visitor = method.visitor;
-        if (!(assignment.getVariable() instanceof AssignableExpression)) {
-            throw new IllegalArgumentException(assignment.getVariable() + " is not assignable!");
-        }
         if (assignment.getOperator() != TokenType.EQUAL) {
             error(assignment, "Only = is supported for AssignmentExpression currently");
             compileExpression(assignment.getValue());
@@ -420,6 +417,24 @@ public class GlangCompiler {
                     false
                 );
             }
+        } else if (assignment.getVariable() instanceof AccessExpression access) {
+            compileExpression(access.getTarget());
+            method.checkLine(assignment);
+            visitor.visitLdcInsn(access.getMember());
+            compileExpression(assignment.getValue());
+            if (!access.getType().isMethodAccess()) {
+                visitor.visitMethodInsn(
+                    Opcodes.INVOKESTATIC, g_r_GlangRuntime, "setField",
+                    "(Ljava/lang/Object;Ljava/lang/String;Ljava/lang/Object;)Ljava/lang/Object;",
+                    false
+                );
+            } else {
+                error(access, "Cannot assign to method access");
+                visitor.visitInsn(Opcodes.SWAP);
+                visitor.visitInsn(Opcodes.POP);
+                visitor.visitInsn(Opcodes.SWAP);
+                visitor.visitInsn(Opcodes.POP);
+            }
         } else {
             error(assignment, "AssignmentExpression to " + assignment.getVariable().getClass().getSimpleName() + " not supported");
             compileExpression(assignment.getValue());
@@ -432,6 +447,12 @@ public class GlangCompiler {
         method.checkLine(access);
         visitor.visitLdcInsn(access.getMember());
         switch (type) {
+            // Simple and direct are the same for now, until property getters and setters
+            case SIMPLE, DIRECT -> visitor.visitMethodInsn(
+                Opcodes.INVOKESTATIC, g_r_GlangRuntime, "getField",
+                "(Ljava/lang/Object;Ljava/lang/String;)Ljava/lang/Object;",
+                false
+            );
             case METHOD -> visitor.visitMethodInsn(
                 Opcodes.INVOKESTATIC, g_r_GlangRuntime, "getInstanceMethod",
                 "(Ljava/lang/Object;Ljava/lang/String;)Lglang/runtime/lookup/MethodLookup;",

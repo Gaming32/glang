@@ -301,8 +301,32 @@ public class GlangCompiler {
                 method.checkLine(expression);
                 visitor.visitInsn(Opcodes.DUP);
                 compileAccess(access, access.getType().toMethodAccess());
+                method.checkLine(expression);
                 visitor.visitInsn(Opcodes.SWAP);
-                argCount++; // TODO: I think this will break if argCount > 16
+                argCount++;
+                if (argCount > 16) {
+                    visitInt(visitor, argCount);
+                    visitor.visitTypeInsn(Opcodes.ANEWARRAY, j_l_Object);
+                    visitor.visitInsn(Opcodes.DUP_X1);
+                    visitor.visitInsn(Opcodes.SWAP);
+                    visitor.visitInsn(Opcodes.ICONST_0);
+                    visitor.visitInsn(Opcodes.SWAP);
+                    visitor.visitInsn(Opcodes.AASTORE);
+                    int i = 1;
+                    for (final ExpressionNode expr : call.getArgs()) {
+                        visitor.visitInsn(Opcodes.DUP);
+                        visitInt(visitor, i++);
+                        compileExpression(expr);
+                        visitor.visitInsn(Opcodes.AASTORE);
+                    }
+                    method.checkLine(expression);
+                    visitor.visitMethodInsn(
+                        Opcodes.INVOKESTATIC, g_r_GlangRuntime, "invokeObject",
+                        "(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;",
+                        false
+                    );
+                    return;
+                }
             } else {
                 compileExpression(call.getTarget());
             }
@@ -550,6 +574,7 @@ public class GlangCompiler {
             visitor.visitInsn(Opcodes.DUP);
             visitInt(visitor, i);
             compiler.accept(array.get(i));
+            visitor.visitInsn(Opcodes.AASTORE);
         }
     }
 

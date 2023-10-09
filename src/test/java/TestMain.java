@@ -13,14 +13,8 @@ import java.util.Map;
 
 public class TestMain {
     private static final String SOURCE = """
-        var x = 5
-        while (x) {
-          println(x)
-          x = Integer.sum(x, -1)
-        } else {
-          println("no break")
-        }
-        println("done")
+        // println(String.CASE_INSENSITIVE_COMPARATOR)
+        println("%s %s".formatted(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16))
         """;
 
     public static void main(String[] args) {

@@ -100,7 +100,6 @@ public class GlangTreeifier {
             while (!check(TokenGroup.SAVEPOINT)) {
                 next();
             }
-            next();
             return null;
         }
     }
@@ -176,6 +175,9 @@ public class GlangTreeifier {
     private StatementNode conditionalBody(String statementType) {
         final SourceLocation location = peek().getLocation();
         final StatementNode body = statement();
+        if (body == null) {
+            throw SkipStatement.INSTANCE;
+        }
         if (IfOrWhileStatement.isBlockedBody(body)) {
             errorCollector.addError("Statement not allowed in " + statementType + " body", location);
         }
@@ -227,7 +229,7 @@ public class GlangTreeifier {
         while (match(TokenType.OR_OR)) {
             final ExpressionNode right = and();
             final SourceLocation endLocation = getSourceLocation();
-            left = new BinaryExpression(left, Operator.OR, right, startLocation, endLocation);
+            left = new BinaryExpression(left, BinaryExpression.Operator.OR, right, startLocation, endLocation);
         }
         return left;
     }
@@ -238,7 +240,7 @@ public class GlangTreeifier {
         while (match(TokenType.AND_AND)) {
             final ExpressionNode right = comparison();
             final SourceLocation endLocation = getSourceLocation();
-            left = new BinaryExpression(left, Operator.AND, right, startLocation, endLocation);
+            left = new BinaryExpression(left, BinaryExpression.Operator.AND, right, startLocation, endLocation);
         }
         return left;
     }
@@ -247,7 +249,7 @@ public class GlangTreeifier {
         final SourceLocation startLocation = peek().getLocation();
         ExpressionNode left = bitwiseOr();
         while (check(TokenGroup.COMPARISON)) {
-            final Operator operator = Operator.binary(next().getType());
+            final BinaryExpression.Operator operator = BinaryExpression.Operator.BY_TOKEN.get(next().getType());
             final ExpressionNode right = bitwiseOr();
             final SourceLocation endLocation = getSourceLocation();
             left = new BinaryExpression(left, operator, right, startLocation, endLocation);
@@ -261,7 +263,7 @@ public class GlangTreeifier {
         while (match(TokenType.OR)) {
             final ExpressionNode right = bitwiseXor();
             final SourceLocation endLocation = getSourceLocation();
-            left = new BinaryExpression(left, Operator.BITWISE_OR, right, startLocation, endLocation);
+            left = new BinaryExpression(left, BinaryExpression.Operator.BITWISE_OR, right, startLocation, endLocation);
         }
         return left;
     }
@@ -272,7 +274,7 @@ public class GlangTreeifier {
         while (match(TokenType.CARET)) {
             final ExpressionNode right = bitwiseAnd();
             final SourceLocation endLocation = getSourceLocation();
-            left = new BinaryExpression(left, Operator.BITWISE_XOR, right, startLocation, endLocation);
+            left = new BinaryExpression(left, BinaryExpression.Operator.BITWISE_XOR, right, startLocation, endLocation);
         }
         return left;
     }
@@ -283,7 +285,7 @@ public class GlangTreeifier {
         while (match(TokenType.AND)) {
             final ExpressionNode right = bitShift();
             final SourceLocation endLocation = getSourceLocation();
-            left = new BinaryExpression(left, Operator.BITWISE_AND, right, startLocation, endLocation);
+            left = new BinaryExpression(left, BinaryExpression.Operator.BITWISE_AND, right, startLocation, endLocation);
         }
         return left;
     }
@@ -292,7 +294,7 @@ public class GlangTreeifier {
         final SourceLocation startLocation = peek().getLocation();
         ExpressionNode left = term();
         while (check(TokenGroup.BIT_SHIFT)) {
-            final Operator operator = Operator.binary(next().getType());
+            final BinaryExpression.Operator operator = BinaryExpression.Operator.BY_TOKEN.get(next().getType());
             final ExpressionNode right = term();
             final SourceLocation endLocation = getSourceLocation();
             left = new BinaryExpression(left, operator, right, startLocation, endLocation);
@@ -304,7 +306,7 @@ public class GlangTreeifier {
         final SourceLocation startLocation = peek().getLocation();
         ExpressionNode left = factor();
         while (check(TokenGroup.TERM)) {
-            final Operator operator = Operator.binary(next().getType());
+            final BinaryExpression.Operator operator = BinaryExpression.Operator.BY_TOKEN.get(next().getType());
             final ExpressionNode right = factor();
             final SourceLocation endLocation = getSourceLocation();
             left = new BinaryExpression(left, operator, right, startLocation, endLocation);
@@ -316,7 +318,7 @@ public class GlangTreeifier {
         final SourceLocation startLocation = peek().getLocation();
         ExpressionNode left = unary();
         if (check(TokenGroup.FACTOR)) {
-            final Operator operator = Operator.binary(next().getType());
+            final BinaryExpression.Operator operator = BinaryExpression.Operator.BY_TOKEN.get(next().getType());
             final ExpressionNode right = unary();
             final SourceLocation endLocation = getSourceLocation();
             left = new BinaryExpression(left, operator, right, startLocation, endLocation);
@@ -327,7 +329,7 @@ public class GlangTreeifier {
     private ExpressionNode unary() {
         final SourceLocation startLocation = peek().getLocation();
         if (check(TokenGroup.UNARY)) {
-            final Operator operator = Operator.unary(next().getType());
+            final UnaryExpression.Operator operator = UnaryExpression.Operator.BY_TOKEN.get(next().getType());
             final ExpressionNode operand = unary();
             final SourceLocation endLocation = getSourceLocation();
             return new UnaryExpression(operator, operand, startLocation, endLocation);
@@ -342,10 +344,10 @@ public class GlangTreeifier {
             if (match(TokenType.LPAREN)) {
                 target = finishCall(startLocation, target);
             } else if (check(TokenGroup.ACCESS)) {
-                final AccessExpression.Type type = AccessExpression.Type.BY_TEXT.get(next().getType().toString());
+                final AccessExpression.Operator operator = AccessExpression.Operator.BY_TOKEN.get(next().getType());
                 final String member = ((Token.Identifier)expect(TokenType.IDENTIFIER)).getIdentifier();
                 final SourceLocation endLocation = getSourceLocation();
-                target = new AccessExpression(target, member, type, startLocation, endLocation);
+                target = new AccessExpression(target, member, operator, startLocation, endLocation);
             } else {
                 return target;
             }

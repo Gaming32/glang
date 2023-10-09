@@ -1,7 +1,9 @@
 package glang.compiler.tree.expression;
 
 import glang.compiler.SourceLocation;
-import glang.compiler.tree.Operator;
+import glang.compiler.token.TokenType;
+
+import java.util.Map;
 
 public class UnaryExpression extends ExpressionNode {
     private final Operator operator;
@@ -12,9 +14,6 @@ public class UnaryExpression extends ExpressionNode {
         SourceLocation startLocation, SourceLocation endLocation
     ) {
         super(startLocation, endLocation);
-        if (operator.isBinary()) {
-            throw new IllegalArgumentException("Operator must be unary, was " + operator);
-        }
         this.operator = operator;
         this.operand = operand;
     }
@@ -32,5 +31,29 @@ public class UnaryExpression extends ExpressionNode {
         result.append(operator);
         operand.print(result, currentIndent, indent);
         return result;
+    }
+
+    public enum Operator {
+        NOT("!"),
+        PLUS("+"),
+        NEGATE("-"),
+        INVERT("~");
+
+        public static final Map<TokenType, Operator> BY_TOKEN = TokenType.byToken(values(), Operator::getText);
+
+        private final String text;
+
+        Operator(String text) {
+            this.text = text;
+        }
+
+        public String getText() {
+            return text;
+        }
+
+        @Override
+        public String toString() {
+            return text;
+        }
     }
 }

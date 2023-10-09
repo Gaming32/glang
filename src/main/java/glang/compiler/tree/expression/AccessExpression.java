@@ -2,25 +2,23 @@ package glang.compiler.tree.expression;
 
 import glang.compiler.SourceLocation;
 import glang.compiler.token.Token;
+import glang.compiler.token.TokenType;
 
-import java.util.Arrays;
 import java.util.Map;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
 public class AccessExpression extends ExpressionNode implements AssignableExpression {
     private final ExpressionNode target;
     private final String member;
-    private final Type type;
+    private final Operator operator;
 
     public AccessExpression(
-        ExpressionNode target, String member, Type type,
+        ExpressionNode target, String member, Operator operator,
         SourceLocation startLocation, SourceLocation endLocation
     ) {
         super(startLocation, endLocation);
         this.target = target;
         this.member = member;
-        this.type = type;
+        this.operator = operator;
     }
 
     public ExpressionNode getTarget() {
@@ -31,30 +29,29 @@ public class AccessExpression extends ExpressionNode implements AssignableExpres
         return member;
     }
 
-    public Type getType() {
-        return type;
+    public Operator getOperator() {
+        return operator;
     }
 
     @Override
     public StringBuilder print(StringBuilder result, int currentIndent, int indent) {
         result.append('(');
         target.print(result, currentIndent, indent);
-        return result.append(')').append(type).append(Token.Identifier.prettyPrint(member));
+        return result.append(')').append(operator).append(Token.Identifier.prettyPrint(member));
     }
 
-    public enum Type {
+    public enum Operator {
         SIMPLE(".", false),
         DIRECT(".!", false),
         METHOD("::", true),
         DIRECT_METHOD("::!", true);
 
-        public static final Map<String, Type> BY_TEXT = Arrays.stream(values())
-            .collect(Collectors.toUnmodifiableMap(Type::getText, Function.identity()));
+        public static final Map<TokenType, Operator> BY_TOKEN = TokenType.byToken(values(), Operator::getText);
 
         private final String text;
         private final boolean methodAccess;
 
-        Type(String text, boolean methodAccess) {
+        Operator(String text, boolean methodAccess) {
             this.text = text;
             this.methodAccess = methodAccess;
         }
@@ -72,7 +69,7 @@ public class AccessExpression extends ExpressionNode implements AssignableExpres
             return text;
         }
 
-        public Type toMethodAccess() {
+        public Operator toMethodAccess() {
             return switch (this) {
                 case SIMPLE -> METHOD;
                 case DIRECT -> DIRECT_METHOD;

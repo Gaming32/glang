@@ -18,7 +18,7 @@ public class TestMain {
         while (it.hasNext()) {
             var value = it.next()
             println(value)
-            if (value) {} else break
+            // if (value) {} else break
         }
         println("done")
         """;

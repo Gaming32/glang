@@ -2,9 +2,12 @@ package glang.compiler.token;
 
 import glang.compiler.util.SymbolMap;
 
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 public enum TokenType {
     // Non-keywords
@@ -61,16 +64,18 @@ public enum TokenType {
     IMPORT("import"),
     VAR("var"),
     FN("fn"),
+    CLASS("class"),
     PUBLIC("public"),
     PRIVATE("private"),
     STATIC("static"),
+    FINAL("final"),
     INSTANCEOF("instanceof"),
     IF("if"),
     ELSE("else"),
     WHILE("while"),
     FOR("for"),
-    FINAL("final"),
-    CLASS("class"),
+    BREAK("break"),
+    CONTINUE("continue"),
     TRUE("true"),
     FALSE("false"),
     NULL("null"),
@@ -130,5 +135,12 @@ public enum TokenType {
     @Override
     public String toString() {
         return basicText != null ? basicText : name().toLowerCase(Locale.ROOT);
+    }
+
+    public static <E> Map<TokenType, E> byToken(E[] values, Function<E, String> getText) {
+        return Arrays.stream(values).collect(Collectors.toUnmodifiableMap(
+            o -> TokenType.SIMPLE_TOKENS.get(getText.apply(o)),
+            Function.identity()
+        ));
     }
 }

@@ -7,7 +7,6 @@ import glang.compiler.token.Token;
 import glang.compiler.token.TokenType;
 import glang.compiler.tree.ASTNode;
 import glang.compiler.tree.GlangTreeifier;
-import glang.compiler.tree.Operator;
 import glang.compiler.tree.StatementList;
 import glang.compiler.tree.expression.*;
 import glang.compiler.tree.statement.*;
@@ -305,7 +304,7 @@ public class GlangCompiler {
                 compileExpression(access.getTarget());
                 method.checkLine(expression);
                 visitor.visitInsn(Opcodes.DUP);
-                compileAccess(access, access.getType().toMethodAccess());
+                compileAccess(access, access.getOperator().toMethodAccess());
                 method.checkLine(expression);
                 visitor.visitInsn(Opcodes.SWAP);
                 argCount++;
@@ -355,11 +354,11 @@ public class GlangCompiler {
         } else if (expression instanceof AccessExpression access) {
             compileExpression(access.getTarget());
             method.checkLine(expression);
-            compileAccess(access, access.getType());
+            compileAccess(access, access.getOperator());
         } else if (expression instanceof AssignmentExpression assignment) {
             compileAssignment(assignment);
         } else if (expression instanceof UnaryExpression unary) {
-            if (unary.getOperator() == Operator.NEGATE && unary.getOperand() instanceof NumberExpression numExpr) {
+            if (unary.getOperator() == UnaryExpression.Operator.NEGATE && unary.getOperand() instanceof NumberExpression numExpr) {
                 final Number num = numExpr.getValue();
                 if (num instanceof Integer integer) {
                     compileNumber(-integer, expression);
@@ -427,7 +426,7 @@ public class GlangCompiler {
             method.checkLine(assignment);
             visitor.visitLdcInsn(access.getMember());
             compileExpression(assignment.getValue());
-            if (!access.getType().isMethodAccess()) {
+            if (!access.getOperator().isMethodAccess()) {
                 visitor.visitMethodInsn(
                     Opcodes.INVOKESTATIC, g_r_GlangRuntime, "setField",
                     "(Ljava/lang/Object;Ljava/lang/String;Ljava/lang/Object;)Ljava/lang/Object;",
@@ -446,12 +445,12 @@ public class GlangCompiler {
         }
     }
 
-    private void compileAccess(AccessExpression access, AccessExpression.Type type) {
+    private void compileAccess(AccessExpression access, AccessExpression.Operator operator) {
         final MethodState method = methodStates.get();
         final MethodVisitor visitor = method.visitor;
         method.checkLine(access);
         visitor.visitLdcInsn(access.getMember());
-        switch (type) {
+        switch (operator) {
             // Simple and direct are the same for now, until property getters and setters
             case SIMPLE, DIRECT -> visitor.visitMethodInsn(
                 Opcodes.INVOKESTATIC, g_r_GlangRuntime, "getField",
@@ -469,7 +468,7 @@ public class GlangCompiler {
                 false
             );
             default -> {
-                error(access, "AccessExpression " + type + " not supported");
+                error(access, "AccessExpression " + operator + " not supported");
                 method.checkLine(access);
                 visitor.visitInsn(Opcodes.POP);
             }

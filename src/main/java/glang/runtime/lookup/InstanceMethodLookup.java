@@ -7,6 +7,7 @@ import com.github.benmanes.caffeine.cache.LoadingCache;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.Arrays;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletionException;
 import java.util.stream.Collectors;
@@ -25,7 +26,7 @@ public final class InstanceMethodLookup {
             "glang.instanceMethodLookup.staticCacheSpec", "softValues"
         ))).build(clazz -> new InstanceMethodLookup(clazz, true));
 
-    private static final Set<String> CLASS_METHODS = Arrays.stream(Class.class.getDeclaredMethods())
+    private static final Set<String> CLASS_METHODS = Arrays.stream(Class.class.getMethods())
         .filter(m -> (m.getModifiers() & (Modifier.PUBLIC | Modifier.STATIC)) == Modifier.PUBLIC)
         .map(Method::getName)
         .collect(Collectors.toUnmodifiableSet());
@@ -34,16 +35,18 @@ public final class InstanceMethodLookup {
         .maximumSize(CLASS_METHODS.size())
         .build(name -> new SimpleMethodLookup<>(Class.class, MethodLookup.Unreflector.method(name, false, false)));
 
-    private final LoadingCache<String, MethodLookup> lookup;
+    private final LoadingCache<String, Optional<MethodLookup>> lookup;
     private final boolean forClass;
 
     private InstanceMethodLookup(Class<?> clazz, boolean forClass) {
         lookup = Caffeine.from(CACHE_SPEC).build(name -> {
             try {
-                return new SimpleMethodLookup<>(clazz, MethodLookup.Unreflector.method(name, forClass, forClass));
+                return Optional.of(new SimpleMethodLookup<>(
+                    clazz, MethodLookup.Unreflector.method(name, forClass, forClass)
+                ));
             } catch (NoSuchMethodException e) {
                 if (forClass && CLASS_METHODS.contains(name)) {
-                    return null;
+                    return Optional.empty();
                 }
                 throw e;
             }
@@ -61,13 +64,14 @@ public final class InstanceMethodLookup {
                 if (requireDirect) {
                     return CLASS_LOOKUP.get(methodName);
                 }
-                MethodLookup result = lookup.get(methodName);
-                if (result == null) {
+                final Optional<MethodLookup> result = lookup.get(methodName);
+                //noinspection OptionalIsPresent
+                if (result.isEmpty()) {
                     return CLASS_LOOKUP.get(methodName);
                 }
-                return result;
+                return result.get();
             } else {
-                return lookup.get(methodName);
+                return lookup.get(methodName).orElseThrow(AssertionError::new);
             }
         } catch (CompletionException e) {
             if (e.getCause() instanceof NoSuchMethodException e1) {

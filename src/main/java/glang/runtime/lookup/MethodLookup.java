@@ -78,7 +78,7 @@ public abstract class MethodLookup {
             return new Unreflector<>() {
                 @Override
                 public Method[] getDeclared(Class<?> clazz) {
-                    return clazz.getDeclaredMethods();
+                    return isStatic ? clazz.getDeclaredMethods() : clazz.getMethods();
                 }
 
                 @Override

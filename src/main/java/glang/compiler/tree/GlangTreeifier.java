@@ -84,7 +84,7 @@ public class GlangTreeifier {
 
         final SourceLocation startLocation = getSourceLocation();
         final StatementList statements = statementList(TokenType.RCURLY);
-        expect(TokenType.RCURLY);
+        expectSafe(TokenType.RCURLY);
         final SourceLocation endLocation = getSourceLocation();
 
         return new BlockStatement(statements, startLocation, endLocation);
@@ -100,9 +100,7 @@ public class GlangTreeifier {
             while (!check(TokenGroup.SAVEPOINT)) {
                 next();
             }
-            if (!check(TokenType.RCURLY)) {
-                next();
-            }
+            next();
             return null;
         }
     }
@@ -118,7 +116,10 @@ public class GlangTreeifier {
             return variableDeclaration();
         }
         if (check(TokenType.IF)) {
-            return ifStatement();
+            return ifOrWhileStatement(false);
+        }
+        if (check(TokenType.WHILE)) {
+            return ifOrWhileStatement(true);
         }
         return expressionStatement();
     }
@@ -155,13 +156,13 @@ public class GlangTreeifier {
         return new VariableDeclaration(name, initializer, startLocation, endLocation);
     }
 
-    private IfStatement ifStatement() {
-        expect(TokenType.IF);
+    private IfOrWhileStatement ifOrWhileStatement(boolean isWhile) {
+        expect(isWhile ? TokenType.WHILE : TokenType.IF);
         final SourceLocation startLocation = getSourceLocation();
         expect(TokenType.LPAREN);
         final ExpressionNode condition = expression();
         expect(TokenType.RPAREN);
-        final StatementNode body = conditionalBody("if");
+        final StatementNode body = conditionalBody(isWhile ? "while" : "if");
         final StatementNode elseBody;
         if (match(TokenType.ELSE)) {
             elseBody = conditionalBody("else");
@@ -169,13 +170,13 @@ public class GlangTreeifier {
             elseBody = null;
         }
         final SourceLocation endLocation = getSourceLocation();
-        return new IfStatement(condition, body, elseBody, startLocation, endLocation);
+        return new IfOrWhileStatement(condition, isWhile, body, elseBody, startLocation, endLocation);
     }
 
     private StatementNode conditionalBody(String statementType) {
         final SourceLocation location = peek().getLocation();
         final StatementNode body = statement();
-        if (IfStatement.isBlockedBody(body)) {
+        if (IfOrWhileStatement.isBlockedBody(body)) {
             errorCollector.addError("Statement not allowed in " + statementType + " body", location);
         }
         return body;
@@ -426,7 +427,10 @@ public class GlangTreeifier {
     private <T extends Token> T expectSafe(TokenType tokenType) {
         final Token next = next();
         if (next.getType() != tokenType) {
-            errorSafe("Expected '" + tokenType + "', found '" + next.prettyPrint() + "'");
+            errorCollector.addError(
+                "Expected '" + tokenType + "', found '" + next.prettyPrint() + "'",
+                next.getLocation()
+            );
             return null;
         }
         return (T)next;

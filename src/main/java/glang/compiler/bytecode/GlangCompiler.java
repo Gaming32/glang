@@ -7,6 +7,7 @@ import glang.compiler.token.Token;
 import glang.compiler.token.TokenType;
 import glang.compiler.tree.ASTNode;
 import glang.compiler.tree.GlangTreeifier;
+import glang.compiler.tree.Operator;
 import glang.compiler.tree.StatementList;
 import glang.compiler.tree.expression.*;
 import glang.compiler.tree.statement.*;
@@ -247,12 +248,14 @@ public class GlangCompiler {
             }
             method.checkLine(statement);
             visitor.visitVarInsn(Opcodes.ASTORE, variable.index);
-        } else if (statement instanceof IfStatement ifStatement) {
+        } else if (statement instanceof IfOrWhileStatement ifOrWhileStatement) {
+            final Label conditionStart = new Label();
             final Label mainBodyEnd = new Label();
             final Label elseEnd = new Label();
 
-            compileExpression(ifStatement.getCondition());
-            method.checkLine(ifStatement);
+            visitor.visitLabel(conditionStart);
+            compileExpression(ifOrWhileStatement.getCondition());
+            method.checkLine(ifOrWhileStatement);
             visitor.visitMethodInsn(
                 Opcodes.INVOKESTATIC, g_r_GlangRuntime, "isTruthy",
                 "(Ljava/lang/Object;)Z",
@@ -260,24 +263,26 @@ public class GlangCompiler {
             );
             visitor.visitJumpInsn(Opcodes.IFEQ, mainBodyEnd);
 
-            if (IfStatement.isBlockedBody(ifStatement.getBody())) {
-                error(ifStatement.getBody(), "Statement not allowed in if body");
+            if (IfOrWhileStatement.isBlockedBody(ifOrWhileStatement.getBody())) {
+                error(ifOrWhileStatement.getBody(), "Statement not allowed in if body");
             } else {
-                compileStatement(ifStatement.getBody());
+                compileStatement(ifOrWhileStatement.getBody());
             }
-            if (ifStatement.getElseBody() != null) {
+            if (ifOrWhileStatement.isWhile()) {
+                visitor.visitJumpInsn(Opcodes.GOTO, conditionStart);
+            } else if (ifOrWhileStatement.getElseBody() != null) {
                 visitor.visitJumpInsn(Opcodes.GOTO, elseEnd);
             }
             visitor.visitLabel(mainBodyEnd);
 
-            if (ifStatement.getElseBody() != null) {
-                if (IfStatement.isBlockedBody(ifStatement.getElseBody())) {
-                    error(ifStatement.getElseBody(), "Statement not allowed in else body");
+            if (ifOrWhileStatement.getElseBody() != null) {
+                if (IfOrWhileStatement.isBlockedBody(ifOrWhileStatement.getElseBody())) {
+                    error(ifOrWhileStatement.getElseBody(), "Statement not allowed in else body");
                 } else {
-                    compileStatement(ifStatement.getElseBody());
+                    compileStatement(ifOrWhileStatement.getElseBody());
                 }
-                visitor.visitLabel(elseEnd);
             }
+            visitor.visitLabel(elseEnd);
         } else {
             error(statement, "StatementNode " + statement.getClass().getSimpleName() + " not supported");
         }
@@ -324,6 +329,29 @@ public class GlangCompiler {
             compileAccess(access, access.getType());
         } else if (expression instanceof AssignmentExpression assignment) {
             compileAssignment(assignment);
+        } else if (expression instanceof UnaryExpression unary) {
+            if (unary.getOperator() == Operator.NEGATE && unary.getOperand() instanceof NumberExpression numExpr) {
+                final Number num = numExpr.getValue();
+                if (num instanceof Integer integer) {
+                    compileNumber(-integer, expression);
+                    return;
+                }
+                if (num instanceof Double doubleValue) {
+                    compileNumber(-doubleValue, expression);
+                    return;
+                }
+                if (num instanceof Long longValue) {
+                    compileNumber(-longValue, expression);
+                    return;
+                }
+                if (num instanceof BigInteger bigInteger) {
+                    compileNumber(bigInteger.negate(), expression);
+                    return;
+                }
+            }
+            error(expression, "UnaryExpression not implemented yet");
+            method.checkLine(expression);
+            visitor.visitInsn(Opcodes.ACONST_NULL);
         } else {
             error(expression, "ExpressionNode " + expression.getClass().getSimpleName() + " not supported");
             method.checkLine(expression);
@@ -413,63 +441,7 @@ public class GlangCompiler {
             method.checkLine(literal);
             visitor.visitLdcInsn(stringExpression.getValue());
         } else if (literal instanceof NumberExpression numberExpression) {
-            if (numberExpression.getValue() instanceof Integer integer) {
-                method.checkLine(literal);
-                visitor.visitLdcInsn(new ConstantDynamic(
-                    "$glang$int$", "Ljava/lang/Integer;",
-                    new Handle(
-                        Opcodes.H_INVOKESTATIC,
-                        g_r_ConstantBootstrap,
-                        "intWrapper",
-                        CONDY_DESC_PREFIX + "I)Ljava/lang/Integer;",
-                        false
-                    ),
-                    integer
-                ));
-            } else if (numberExpression.getValue() instanceof Double doubleValue) {
-                method.checkLine(literal);
-                visitor.visitLdcInsn(new ConstantDynamic(
-                    "$glang$double$", "Ljava/lang/Double;",
-                    new Handle(
-                        Opcodes.H_INVOKESTATIC,
-                        g_r_ConstantBootstrap,
-                        "doubleWrapper",
-                        CONDY_DESC_PREFIX + "D)Ljava/lang/Double;",
-                        false
-                    ),
-                    doubleValue
-                ));
-            } else if (numberExpression.getValue() instanceof Long longValue) {
-                method.checkLine(literal);
-                visitor.visitLdcInsn(new ConstantDynamic(
-                    "$glang$long$", "Ljava/lang/Long;",
-                    new Handle(
-                        Opcodes.H_INVOKESTATIC,
-                        g_r_ConstantBootstrap,
-                        "longWrapper",
-                        CONDY_DESC_PREFIX + "J)Ljava/lang/Long;",
-                        false
-                    ),
-                    longValue
-                ));
-            } else if (numberExpression.getValue() instanceof BigInteger bigInteger) {
-                method.checkLine(literal);
-                visitor.visitLdcInsn(new ConstantDynamic(
-                    "$glang$bigInteger$", "Ljava/math/BigInteger;",
-                    new Handle(
-                        Opcodes.H_INVOKESTATIC,
-                        g_r_ConstantBootstrap,
-                        "bigInteger",
-                        CONDY_DESC_PREFIX + "Ljava/lang/String;)Ljava/math/BigInteger;",
-                        false
-                    ),
-                    bigInteger.toString()
-                ));
-            } else {
-                error(literal, "Number " + literal.getClass().getSimpleName() + " not supported");
-                method.checkLine(literal);
-                visitor.visitInsn(Opcodes.ACONST_NULL);
-            }
+            compileNumber(numberExpression.getValue(), literal);
         } else if (literal instanceof IdentifierExpression identifier) {
             boolean found = false;
             for (final ScopeState scope : (Iterable<ScopeState>)scopeStates.stack::descendingIterator) {
@@ -501,6 +473,64 @@ public class GlangCompiler {
         } else {
             error(literal, "LiteralExpression " + literal.getClass().getSimpleName() + " not supported");
             method.checkLine(literal);
+            visitor.visitInsn(Opcodes.ACONST_NULL);
+        }
+    }
+
+    private void compileNumber(Number num, ASTNode node) {
+        final MethodState method = methodStates.get();
+        final MethodVisitor visitor = method.visitor;
+        method.checkLine(node);
+        if (num instanceof Integer integer) {
+            visitor.visitLdcInsn(new ConstantDynamic(
+                "$glang$int$", "Ljava/lang/Integer;",
+                new Handle(
+                    Opcodes.H_INVOKESTATIC,
+                    g_r_ConstantBootstrap,
+                    "intWrapper",
+                    CONDY_DESC_PREFIX + "I)Ljava/lang/Integer;",
+                    false
+                ),
+                integer
+            ));
+        } else if (num instanceof Double doubleValue) {
+            visitor.visitLdcInsn(new ConstantDynamic(
+                "$glang$double$", "Ljava/lang/Double;",
+                new Handle(
+                    Opcodes.H_INVOKESTATIC,
+                    g_r_ConstantBootstrap,
+                    "doubleWrapper",
+                    CONDY_DESC_PREFIX + "D)Ljava/lang/Double;",
+                    false
+                ),
+                doubleValue
+            ));
+        } else if (num instanceof Long longValue) {
+            visitor.visitLdcInsn(new ConstantDynamic(
+                "$glang$long$", "Ljava/lang/Long;",
+                new Handle(
+                    Opcodes.H_INVOKESTATIC,
+                    g_r_ConstantBootstrap,
+                    "longWrapper",
+                    CONDY_DESC_PREFIX + "J)Ljava/lang/Long;",
+                    false
+                ),
+                longValue
+            ));
+        } else if (num instanceof BigInteger bigInteger) {
+            visitor.visitLdcInsn(new ConstantDynamic(
+                "$glang$bigInteger$", "Ljava/math/BigInteger;",
+                new Handle(
+                    Opcodes.H_INVOKESTATIC,
+                    g_r_ConstantBootstrap,
+                    "bigInteger",
+                    CONDY_DESC_PREFIX + "Ljava/lang/String;)Ljava/math/BigInteger;",
+                    false
+                ),
+                bigInteger.toString()
+            ));
+        } else {
+            error(node, "Cannot compile Number class " + num.getClass().getCanonicalName());
             visitor.visitInsn(Opcodes.ACONST_NULL);
         }
     }

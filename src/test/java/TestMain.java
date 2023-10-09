@@ -13,9 +13,14 @@ import java.util.Map;
 
 public class TestMain {
     private static final String SOURCE = """
-        if (1) {
-            println("hi")
-        } else println("bye")
+        var x = 5
+        while (x) {
+          println(x)
+          x = Integer.sum(x, -1)
+        } else {
+          println("no break")
+        }
+        println("done")
         """;
 
     public static void main(String[] args) {

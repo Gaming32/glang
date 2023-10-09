@@ -6,28 +6,34 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
 
-public class IfStatement extends StatementNode {
+public class IfOrWhileStatement extends StatementNode {
     private static final List<Class<? extends StatementNode>> BLOCKED_BODY_STATEMENTS = List.of(
         ImportStatement.class, VariableDeclaration.class
     );
 
     private final ExpressionNode condition;
+    private final boolean isWhile;
     private final StatementNode body;
     @Nullable
     private final StatementNode elseBody;
 
-    public IfStatement(
-        ExpressionNode condition, StatementNode body, @Nullable StatementNode elseBody,
+    public IfOrWhileStatement(
+        ExpressionNode condition, boolean isWhile, StatementNode body, @Nullable StatementNode elseBody,
         SourceLocation startLocation, SourceLocation endLocation
     ) {
         super(startLocation, endLocation);
         this.condition = condition;
+        this.isWhile = isWhile;
         this.body = body;
         this.elseBody = elseBody;
     }
 
     public ExpressionNode getCondition() {
         return condition;
+    }
+
+    public boolean isWhile() {
+        return isWhile;
     }
 
     public StatementNode getBody() {
@@ -41,7 +47,7 @@ public class IfStatement extends StatementNode {
 
     @Override
     public StringBuilder print(StringBuilder result, int currentIndent, int indent) {
-        result.append("if (");
+        result.append(isWhile ? "while" : "if").append(" (");
         condition.print(result, currentIndent, indent);
         result.append(")");
         if (elseBody != null) {
@@ -68,7 +74,7 @@ public class IfStatement extends StatementNode {
     }
 
     public static boolean isBlockedBody(StatementNode body) {
-        for (final var blocked : IfStatement.BLOCKED_BODY_STATEMENTS) {
+        for (final var blocked : IfOrWhileStatement.BLOCKED_BODY_STATEMENTS) {
             if (blocked.isInstance(body)) {
                 return true;
             }

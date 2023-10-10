@@ -22,8 +22,14 @@ import java.math.BigInteger;
 import java.util.*;
 
 public final class GlangRuntime {
-    public static final MethodType IMPORT_STAR_MT = MethodType.methodType(void.class, Map.class);
-    private static final MethodType IMPORT_STAR_0_MT = MethodType.methodType(void.class, MethodHandles.Lookup.class, List.class, Map.class);
+    private static final MethodType IMPORT_STAR_MT = MethodType.methodType(void.class, Map.class);
+    private static final MethodType IMPORT_STAR_0_MT = MethodType.methodType(
+        void.class, MethodHandles.Lookup.class, List.class, Map.class
+    );
+    private static final MethodType DO_IMPORT_MT = MethodType.methodType(Object.class);
+    private static final MethodType DO_IMPORT_0_MT = MethodType.methodType(
+        Object.class, MethodHandles.Lookup.class, List.class, String.class
+    );
 
     private static final LoadingCache<Class<?>, SimpleMethodLookup<Constructor<?>>> CONSTRUCTOR_CACHE =
         Caffeine.from(CaffeineSpec.parse(System.getProperty(
@@ -124,7 +130,7 @@ public final class GlangRuntime {
 
     public static MethodLookup getInstanceMethod(Object obj, String name, boolean requireDirect) throws NoSuchMethodException {
         if (obj == null) {
-            throw new NullPointerException("Cannot invoke method " + name + " on null");
+            throw new NullPointerException("Cannot invoke method '" + name + "' on null");
         }
         final boolean isClass = obj instanceof Class<?>;
         return InstanceMethodLookup.get(isClass ? (Class<?>)obj : obj.getClass(), isClass)
@@ -146,14 +152,14 @@ public final class GlangRuntime {
 
     public static Object getField(Object obj, String name) throws Throwable {
         if (obj == null) {
-            throw new NullPointerException("Cannot get field " + name + " on null");
+            throw new NullPointerException("Cannot get field '" + name + "' on null");
         }
         return getFieldLookup(obj).get(obj, name);
     }
 
     public static Object setField(Object obj, String name, Object value) throws Throwable {
         if (obj == null) {
-            throw new NullPointerException("Cannot set field " + name + " on null");
+            throw new NullPointerException("Cannot set field '" + name + "' on null");
         }
         return getFieldLookup(obj).set(obj, name, value);
     }
@@ -206,7 +212,7 @@ public final class GlangRuntime {
 
     public static CallSite importStar(
         MethodHandles.Lookup lookup, String name, MethodType type, String... path
-    ) throws NoSuchMethodException, IllegalAccessException {
+    ) throws Exception {
         if (!type.equals(IMPORT_STAR_MT)) {
             throw new IllegalArgumentException("importStar type != " + IMPORT_STAR_MT);
         }
@@ -216,7 +222,9 @@ public final class GlangRuntime {
         ));
     }
 
-    public static void importStar0(MethodHandles.Lookup lookup, List<String> path, Map<String, Object> destination) throws Exception {
+    public static void importStar0(
+        MethodHandles.Lookup lookup, List<String> path, Map<String, Object> destination
+    ) throws Exception {
         destination.putAll(collectStarImport(findImportStarClass(lookup, path)));
     }
 
@@ -237,5 +245,21 @@ public final class GlangRuntime {
             }
         }
         throw originalE;
+    }
+
+    public static CallSite doImport(
+        MethodHandles.Lookup lookup, String name, MethodType type, String... path
+    ) throws Exception {
+        if (!type.equals(DO_IMPORT_MT)) {
+            throw new IllegalArgumentException("doImport type != " + DO_IMPORT_MT);
+        }
+        return new ConstantCallSite(MethodHandles.insertArguments(
+            lookup.findStatic(GlangRuntime.class, "doImport0", DO_IMPORT_0_MT),
+            0, lookup, List.of(path), name
+        ));
+    }
+
+    public static Object doImport0(MethodHandles.Lookup lookup, List<String> path, String target) throws Exception {
+        return null;
     }
 }

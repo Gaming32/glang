@@ -33,6 +33,7 @@ public class GlangCompiler {
     private static final String GLOBALS_SIG = "Ljava/util/Map<Ljava/lang/String;Ljava/lang/Object;>;";
 
     private static final String CONDY_DESC_PREFIX = "(Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/Class;";
+    private static final String IMPORT_DESC = "(Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/invoke/MethodType;[Ljava/lang/String;)Ljava/lang/invoke/CallSite;";
 
     private final String namespacePath;
     private final String className;
@@ -326,22 +327,60 @@ public class GlangCompiler {
             method.checkLine(statement);
             visitor.visitJumpInsn(Opcodes.GOTO, loopJump.isContinue() ? loopState.continueLabel : loopState.breakLabel);
         } else if (statement instanceof ImportStatement importStatement) {
+            method.checkLine(statement);
             if (importStatement.getTarget() != null) {
-                error(importStatement, "Non-star import not implemented yet");
+                final ScopeState scope = scopeStates.get();
+                VariableInfo variable = null;
+                boolean isNew = false;
+                if (scopeStates.size() == 1) {
+                    visitor.visitFieldInsn(Opcodes.GETSTATIC, classNameInternal, GLOBALS, GLOBALS_DESC);
+                    visitor.visitLdcInsn(importStatement.getTarget());
+                } else {
+                    variable = scope.variables.get(importStatement.getTarget());
+                    if (variable == null) {
+                        variable = new VariableInfo(method.currentLocal++);
+                        scope.variables.put(importStatement.getTarget(), variable);
+                        isNew = true;
+                    }
+                }
+                visitor.visitInvokeDynamicInsn(
+                    importStatement.getTarget(),
+                    "()Ljava/lang/Object;",
+                    new Handle(
+                        Opcodes.H_INVOKESTATIC,
+                        g_r_GlangRuntime,
+                        "doImport",
+                        IMPORT_DESC,
+                        false
+                    ),
+                    importStatement.getParentPath().toArray()
+                );
+                if (variable == null) {
+                    visitor.visitMethodInsn(
+                        Opcodes.INVOKEINTERFACE, "java/util/Map", "put",
+                        "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;",
+                        true
+                    );
+                    visitor.visitInsn(Opcodes.POP);
+                } else {
+                    visitor.visitVarInsn(Opcodes.ASTORE, variable.index);
+                    if (isNew) {
+                        visitor.visitLabel(variable.startLabel);
+                    }
+                }
             } else {
                 if (scopeStates.size() > 1) {
                     error(importStatement, "Star import only allowed at top-level");
                 }
-                method.checkLine(statement);
                 visitor.visitFieldInsn(Opcodes.GETSTATIC, classNameInternal, GLOBALS, GLOBALS_DESC);
                 visitor.visitInvokeDynamicInsn(
-                    "$glang$import$",
+                    "importStar",
                     "(Ljava/util/Map;)V",
                     new Handle(
                         Opcodes.H_INVOKESTATIC,
                         g_r_GlangRuntime,
                         "importStar",
-                        "(Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/invoke/MethodType;[Ljava/lang/String;)Ljava/lang/invoke/CallSite;",
+                        IMPORT_DESC,
                         false
                     ),
                     importStatement.getParentPath().toArray()

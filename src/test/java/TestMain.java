@@ -26,7 +26,7 @@ public class TestMain {
         
         println("hi")
         println(!"hi")
-        println(!!"hi")
+        println(!!+"hi")
         """;
 
     public static void main(String[] args) {

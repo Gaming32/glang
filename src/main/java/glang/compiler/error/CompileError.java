@@ -4,19 +4,17 @@ import glang.compiler.SourceLocation;
 
 public record CompileError(String reason, SourceLocation location, String line) {
     public String createMessage() {
-        final StringBuilder result = new StringBuilder(reason);
+        final StringBuilder result = new StringBuilder(":")
+            .append(location.line())
+            .append(':')
+            .append(location.column());
         if (!reason.isEmpty()) {
-            result.append('\n');
+            result.append(' ').append(reason);
         }
-        if (line.isEmpty()) {
-            if (!reason.isEmpty()) {
-                result.append("   ");
-            }
-            result.append("Line ").append(location.line()).append(", column ").append(location.column());
-        } else {
+        if (!line.isEmpty()) {
             final String lineStr = Integer.toString(location.line());
             final String stripped = line.stripLeading();
-            result.append(' ');
+            result.append("\n ");
             if (lineStr.length() < 3) {
                 result.append(" ".repeat(3 - lineStr.length()));
             }

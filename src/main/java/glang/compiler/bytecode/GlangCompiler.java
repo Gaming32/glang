@@ -327,8 +327,11 @@ public class GlangCompiler {
             visitor.visitJumpInsn(Opcodes.GOTO, loopJump.isContinue() ? loopState.continueLabel : loopState.breakLabel);
         } else if (statement instanceof ImportStatement importStatement) {
             if (importStatement.getTarget() != null) {
-                error(importStatement, "Non-* import not implemented yet");
+                error(importStatement, "Non-star import not implemented yet");
             } else {
+                if (scopeStates.size() > 1) {
+                    error(importStatement, "Star import only allowed at top-level");
+                }
                 method.checkLine(statement);
                 visitor.visitFieldInsn(Opcodes.GETSTATIC, classNameInternal, GLOBALS, GLOBALS_DESC);
                 visitor.visitInvokeDynamicInsn(

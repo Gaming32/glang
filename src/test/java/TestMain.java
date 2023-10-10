@@ -13,9 +13,8 @@ import java.util.Map;
 
 public class TestMain {
     public static final String SOURCE = """
-        // This is technically a quine
-        import TestMain.*
-        println(SOURCE)
+        import java.lang.invoke.MethodHandles.*
+        println(Lookup.PUBLIC)
         """;
 
     public static void main(String[] args) {

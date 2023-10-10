@@ -105,6 +105,16 @@ public final class GlangRuntime {
             }
         }
 
+        for (final Class<?> nestMember : clazz.getNestMembers()) {
+            if (nestMember.getDeclaringClass() != clazz) continue;
+            final String simpleName = nestMember.getSimpleName();
+            if (fieldNames.contains(simpleName) || methodNames.contains(simpleName)) {
+                result.remove(simpleName);
+                continue;
+            }
+            result.put(simpleName, nestMember);
+        }
+
         return result;
     }
 
@@ -217,7 +227,7 @@ public final class GlangRuntime {
         } catch (Exception e) {
             originalE = e;
         }
-        for (int i = path.size() - 1; i >= 0; i--) {
+        for (int i = path.size() - 2; i >= 0; i--) {
             try {
                 return lookup.findClass(
                     String.join(".", path.subList(0, i)) + "." +

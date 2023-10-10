@@ -1,7 +1,5 @@
 package glang;
 
-import glang.runtime.GlangRuntime;
-
 public class BuiltinsNs {
     public static void println() {
         System.out.println();
@@ -42,9 +40,5 @@ public class BuiltinsNs {
             toPrint.append(' ').append(values[i]);
         }
         System.out.print(toPrint);
-    }
-
-    public static boolean truthy(Object value) throws Throwable {
-        return GlangRuntime.isTruthy(value);
     }
 }

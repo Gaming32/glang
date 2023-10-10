@@ -178,4 +178,12 @@ public final class GlangRuntime {
         }
         return (boolean)booleanValue.invoke();
     }
+
+    public static Boolean isTruthyW(Object obj) throws Throwable {
+        return isTruthy(obj);
+    }
+
+    public static Boolean isFalseyW(Object obj) throws Throwable {
+        return !isTruthy(obj);
+    }
 }

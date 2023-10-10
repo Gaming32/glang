@@ -18,11 +18,15 @@ public class TestMain {
         while (it.hasNext()) {
             var value = it.next()
             println(value)
-            if (value) {} else break
+            if (!value) break
         } else {
             println("not skipped")
         }
         println("done")
+        
+        println("hi")
+        println(!"hi")
+        println(!!"hi")
         """;
 
     public static void main(String[] args) {

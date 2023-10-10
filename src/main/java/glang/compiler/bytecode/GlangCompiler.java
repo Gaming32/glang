@@ -269,15 +269,25 @@ public class GlangCompiler {
                 loopState.breakLabel = elseEnd;
             }
 
+            final boolean isNot;
+            final ExpressionNode condition;
+            if (ifOrWhileStatement.getCondition() instanceof UnaryExpression unary && unary.getOperator() == UnaryExpression.Operator.NOT) {
+                isNot = true;
+                condition = unary.getOperand();
+            } else {
+                isNot = false;
+                condition = ifOrWhileStatement.getCondition();
+            }
+
             visitor.visitLabel(conditionStart);
-            compileExpression(ifOrWhileStatement.getCondition());
+            compileExpression(condition);
             method.checkLine(ifOrWhileStatement);
             visitor.visitMethodInsn(
                 Opcodes.INVOKESTATIC, g_r_GlangRuntime, "isTruthy",
                 "(Ljava/lang/Object;)Z",
                 false
             );
-            visitor.visitJumpInsn(Opcodes.IFEQ, mainBodyEnd);
+            visitor.visitJumpInsn(isNot ? Opcodes.IFNE : Opcodes.IFEQ, mainBodyEnd);
 
             if (IfOrWhileStatement.isBlockedBody(ifOrWhileStatement.getBody())) {
                 error(ifOrWhileStatement.getBody(), "Statement not allowed in if body");
@@ -404,6 +414,26 @@ public class GlangCompiler {
                     compileNumber(bigInteger.negate(), expression);
                     return;
                 }
+            }
+            if (unary.getOperator() == UnaryExpression.Operator.NOT) {
+                if (unary.getOperand() instanceof UnaryExpression subUnary && subUnary.getOperator() == UnaryExpression.Operator.NOT) {
+                    compileExpression(subUnary.getOperand());
+                    method.checkLine(expression);
+                    visitor.visitMethodInsn(
+                        Opcodes.INVOKESTATIC, g_r_GlangRuntime, "isTruthyW",
+                        "(Ljava/lang/Object;)Ljava/lang/Boolean;",
+                        false
+                    );
+                } else {
+                    compileExpression(unary.getOperand());
+                    method.checkLine(expression);
+                    visitor.visitMethodInsn(
+                        Opcodes.INVOKESTATIC, g_r_GlangRuntime, "isFalseyW",
+                        "(Ljava/lang/Object;)Ljava/lang/Boolean;",
+                        false
+                    );
+                }
+                return;
             }
             error(expression, "UnaryExpression not implemented yet");
             method.checkLine(expression);

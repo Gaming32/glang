@@ -46,6 +46,7 @@ public class GlangCompiler {
     private final StateStack<ClassState> classStates = new StateStack<>(ClassState::new);
     private final StateStack<MethodState> methodStates = new StateStack<>(MethodState::new);
     private final StateStack<ScopeState> scopeStates = new StateStack<>(ScopeState::new);
+    private final StateStack<LoopState> loopStates = new StateStack<>(LoopState::new);
 
     public GlangCompiler(String namespacePath, StatementList code, Function<String, ClassWriter> visitors, ErrorCollector errorCollector) {
         this.namespacePath = namespacePath;
@@ -153,6 +154,11 @@ public class GlangCompiler {
 
         clazz.visitor.visitEnd();
         classStates.pop();
+
+        classStates.assertEmpty("Class");
+        methodStates.assertEmpty("Method");
+        scopeStates.assertEmpty("Scope");
+        loopStates.assertEmpty("Loop");
     }
 
     private ClassVisitor getVisitor(String name) {
@@ -257,6 +263,12 @@ public class GlangCompiler {
             final Label mainBodyEnd = new Label();
             final Label elseEnd = new Label();
 
+            final LoopState loopState = ifOrWhileStatement.isWhile() ? loopStates.push("while") : null;
+            if (loopState != null) {
+                loopState.continueLabel = conditionStart;
+                loopState.breakLabel = elseEnd;
+            }
+
             visitor.visitLabel(conditionStart);
             compileExpression(ifOrWhileStatement.getCondition());
             method.checkLine(ifOrWhileStatement);
@@ -279,6 +291,10 @@ public class GlangCompiler {
             }
             visitor.visitLabel(mainBodyEnd);
 
+            if (loopState != null) {
+                loopStates.pop();
+            }
+
             if (ifOrWhileStatement.getElseBody() != null) {
                 if (IfOrWhileStatement.isBlockedBody(ifOrWhileStatement.getElseBody())) {
                     error(ifOrWhileStatement.getElseBody(), "Statement not allowed in else body");
@@ -287,6 +303,18 @@ public class GlangCompiler {
                 }
             }
             visitor.visitLabel(elseEnd);
+        } else if (statement instanceof LoopJumpStatement loopJump) {
+            if (loopStates.isEmpty()) {
+                error(statement, "Not in a loop");
+                return;
+            }
+            final LoopState loopState = loopStates.get();
+            if (loopState.owner != method) {
+                error(statement, "Cannot do non-local jump");
+                return;
+            }
+            method.checkLine(statement);
+            visitor.visitJumpInsn(Opcodes.GOTO, loopJump.isContinue() ? loopState.continueLabel : loopState.breakLabel);
         } else {
             error(statement, "StatementNode " + statement.getClass().getSimpleName() + " not supported");
         }
@@ -620,7 +648,7 @@ public class GlangCompiler {
         }
     }
 
-    private static class StateStack<T extends State> {
+    private class StateStack<T extends State> {
         final Function<String, T> factory;
         final Deque<T> stack = new ArrayDeque<>();
 
@@ -630,6 +658,10 @@ public class GlangCompiler {
 
         int size() {
             return stack.size();
+        }
+
+        boolean isEmpty() {
+            return stack.isEmpty();
         }
 
         T push(String name) {
@@ -646,6 +678,12 @@ public class GlangCompiler {
             final T removed = stack.removeLast();
             removed.end();
             return removed;
+        }
+
+        void assertEmpty(String type) {
+            if (!stack.isEmpty()) {
+                error(code, type + " stack was not fully popped!");
+            }
         }
     }
 
@@ -703,6 +741,16 @@ public class GlangCompiler {
                     entry.getValue().index
                 );
             }
+        }
+    }
+
+    private class LoopState implements State {
+        final String name;
+        final MethodState owner = methodStates.get();
+        Label continueLabel, breakLabel;
+
+        LoopState(String name) {
+            this.name = name;
         }
     }
 

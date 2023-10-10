@@ -19,6 +19,8 @@ public class TestMain {
             var value = it.next()
             println(value)
             if (value) {} else break
+        } else {
+            println("not skipped")
         }
         println("done")
         """;

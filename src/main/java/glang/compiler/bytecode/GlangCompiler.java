@@ -325,6 +325,25 @@ public class GlangCompiler {
             }
             method.checkLine(statement);
             visitor.visitJumpInsn(Opcodes.GOTO, loopJump.isContinue() ? loopState.continueLabel : loopState.breakLabel);
+        } else if (statement instanceof ImportStatement importStatement) {
+            if (importStatement.getTarget() != null) {
+                error(importStatement, "Non-* import not implemented yet");
+            } else {
+                method.checkLine(statement);
+                visitor.visitFieldInsn(Opcodes.GETSTATIC, classNameInternal, GLOBALS, GLOBALS_DESC);
+                visitor.visitInvokeDynamicInsn(
+                    "$glang$import$",
+                    "(Ljava/util/Map;)V",
+                    new Handle(
+                        Opcodes.H_INVOKESTATIC,
+                        g_r_GlangRuntime,
+                        "importStar",
+                        "(Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/invoke/MethodType;[Ljava/lang/String;)Ljava/lang/invoke/CallSite;",
+                        false
+                    ),
+                    importStatement.getParentPath().toArray()
+                );
+            }
         } else {
             error(statement, "StatementNode " + statement.getClass().getSimpleName() + " not supported");
         }

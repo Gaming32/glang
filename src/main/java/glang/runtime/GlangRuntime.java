@@ -10,6 +10,10 @@ import glang.runtime.lookup.InstanceMethodLookup;
 import glang.runtime.lookup.MethodLookup;
 import glang.runtime.lookup.SimpleMethodLookup;
 
+import java.lang.invoke.CallSite;
+import java.lang.invoke.ConstantCallSite;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodType;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -18,6 +22,9 @@ import java.math.BigInteger;
 import java.util.*;
 
 public final class GlangRuntime {
+    public static final MethodType IMPORT_STAR_MT = MethodType.methodType(void.class, Map.class);
+    private static final MethodType IMPORT_STAR_0_MT = MethodType.methodType(void.class, MethodHandles.Lookup.class, List.class, Map.class);
+
     private static final LoadingCache<Class<?>, SimpleMethodLookup<Constructor<?>>> CONSTRUCTOR_CACHE =
         Caffeine.from(CaffeineSpec.parse(System.getProperty(
             "glang.constructorLookup.cacheSpec", "softValues"
@@ -185,5 +192,40 @@ public final class GlangRuntime {
 
     public static Boolean isFalseyW(Object obj) throws Throwable {
         return !isTruthy(obj);
+    }
+
+    public static CallSite importStar(
+        MethodHandles.Lookup lookup, String name, MethodType type, String... path
+    ) throws NoSuchMethodException, IllegalAccessException {
+        if (!type.equals(IMPORT_STAR_MT)) {
+            throw new IllegalArgumentException("importStar type != " + IMPORT_STAR_MT);
+        }
+        return new ConstantCallSite(MethodHandles.insertArguments(
+            lookup.findStatic(GlangRuntime.class, "importStar0", IMPORT_STAR_0_MT),
+            0, lookup, List.of(path)
+        ));
+    }
+
+    public static void importStar0(MethodHandles.Lookup lookup, List<String> path, Map<String, Object> destination) throws Exception {
+        destination.putAll(collectStarImport(findImportStarClass(lookup, path)));
+    }
+
+    private static Class<?> findImportStarClass(MethodHandles.Lookup lookup, List<String> path) throws Exception {
+        final Exception originalE;
+        try {
+            return lookup.findClass(String.join(".", path));
+        } catch (Exception e) {
+            originalE = e;
+        }
+        for (int i = path.size() - 1; i >= 0; i--) {
+            try {
+                return lookup.findClass(
+                    String.join(".", path.subList(0, i)) + "." +
+                        String.join("$", path.subList(i, path.size()))
+                );
+            } catch (Exception ignored) {
+            }
+        }
+        throw originalE;
     }
 }

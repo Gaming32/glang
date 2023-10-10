@@ -12,21 +12,10 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class TestMain {
-    private static final String SOURCE = """
-        var values = Class.forName("java.util.List").of("aaaa", "aaa", "aa", "a", "", "b", "bb", "bbb", "bbbb")
-        var it = values.iterator()
-        while (it.hasNext()) {
-            var value = it.next()
-            println(value)
-            if (!value) break
-        } else {
-            println("not skipped")
-        }
-        println("done")
-        
-        println("hi")
-        println(!"hi")
-        println(!!+"hi")
+    public static final String SOURCE = """
+        // This is technically a quine
+        import TestMain.*
+        println(SOURCE)
         """;
 
     public static void main(String[] args) {

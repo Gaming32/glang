@@ -3,6 +3,7 @@ package glang.runtime;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.CaffeineSpec;
 import com.github.benmanes.caffeine.cache.LoadingCache;
+import glang.compiler.bytecode.GlangCompiler;
 import glang.exception.AmbiguousImportException;
 import glang.exception.ImportNotFoundException;
 import glang.exception.UninvokableObjectException;
@@ -232,12 +233,12 @@ public final class GlangRuntime {
 
     private static Class<?> findImportStarClass(MethodHandles.Lookup lookup, List<String> path) throws ImportNotFoundException {
         try {
-            return lookup.findClass(String.join(".", path));
+            return findClassForImport(lookup, String.join(".", path));
         } catch (Exception ignored) {
         }
         for (int i = path.size() - 2; i >= 0; i--) {
             try {
-                return lookup.findClass(
+                return findClassForImport(lookup,
                     String.join(".", path.subList(0, i)) + "." +
                         String.join("$", path.subList(i, path.size()))
                 );
@@ -262,23 +263,23 @@ public final class GlangRuntime {
     public static Object doImport0(MethodHandles.Lookup lookup, List<String> path, String target) throws ImportNotFoundException {
         if (path.isEmpty()) {
             try {
-                return lookup.findClass(target);
+                return findClassForImport(lookup, target);
             } catch (Exception e) {
-                throw new ImportNotFoundException(path, target, null).initCause(e);
+                throw new ImportNotFoundException(path, target, null);
             }
         }
         String joined = String.join(".", path);
         try {
-            return lookup.findClass(joined + "." + target);
+            return findClassForImport(lookup, joined + "." + target);
         } catch (Exception ignored) {
         }
         try {
-            return lookup.findClass(joined + "$" + target);
+            return findClassForImport(lookup, joined + "$" + target);
         } catch (Exception ignored) {
         }
         //noinspection CatchMayIgnoreException
         try {
-            return findImport(lookup.findClass(joined), target, path);
+            return findImport(findClassForImport(lookup, joined), target, path);
         } catch (Exception e) {
             if (e instanceof AmbiguousImportException aie) {
                 throw aie;
@@ -288,12 +289,12 @@ public final class GlangRuntime {
             joined = String.join(".", path.subList(0, i)) + "." +
                 String.join("$", path.subList(i, path.size()));
             try {
-                return lookup.findClass(joined + "$" + target);
+                return findClassForImport(lookup, joined + "$" + target);
             } catch (Exception ignored) {
             }
             //noinspection CatchMayIgnoreException
             try {
-                return findImport(lookup.findClass(joined), target, path);
+                return findImport(findClassForImport(lookup, joined), target, path);
             } catch (Exception e) {
                 if (e instanceof AmbiguousImportException aie) {
                     throw aie;
@@ -354,5 +355,13 @@ public final class GlangRuntime {
         }
 
         return result;
+    }
+
+    private static Class<?> findClassForImport(MethodHandles.Lookup lookup, String name) throws Exception {
+        try {
+            return lookup.findClass(name);
+        } catch (Exception e) {
+            return lookup.findClass(GlangCompiler.namespacePathToClassName(name));
+        }
     }
 }

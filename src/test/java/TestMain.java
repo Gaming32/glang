@@ -13,8 +13,8 @@ import java.util.Map;
 
 public class TestMain {
     public static final String SOURCE = """
-        import TestMain.SOURCE
-        println(SOURCE)
+        import a.b.test
+        println(test)
         """;
 
     public static void main(String[] args) {

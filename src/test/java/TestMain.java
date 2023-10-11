@@ -13,9 +13,8 @@ import java.util.Map;
 
 public class TestMain {
     public static final String SOURCE = """
-        import java.lang.invoke.MethodHandles.Lookup.PUBLIC
-        println(PUBLIC)
-        // println(MethodHandles.lookup().findClass("TestMain").SOURCE)
+        import TestMain.SOURCE
+        println(SOURCE)
         """;
 
     public static void main(String[] args) {

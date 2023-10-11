@@ -269,6 +269,10 @@ public final class GlangRuntime {
         }
         String joined = String.join(".", path);
         try {
+            return lookup.findClass(joined + "." + target);
+        } catch (Exception ignored) {
+        }
+        try {
             return lookup.findClass(joined + "$" + target);
         } catch (Exception ignored) {
         }
@@ -280,7 +284,7 @@ public final class GlangRuntime {
                 throw aie;
             }
         }
-        for (int i = path.size() - 2; i >= 0; i--) {
+        for (int i = path.size() - 2; i > 0; i--) {
             joined = String.join(".", path.subList(0, i)) + "." +
                 String.join("$", path.subList(i, path.size()));
             try {

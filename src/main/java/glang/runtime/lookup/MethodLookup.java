@@ -4,6 +4,7 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.CaffeineSpec;
 import com.github.benmanes.caffeine.cache.LoadingCache;
 import glang.runtime.GlangRuntime;
+import glang.runtime.extension.ExtensionMethodRegistry;
 import org.jetbrains.annotations.Nullable;
 
 import java.lang.invoke.MethodHandle;
@@ -131,6 +132,37 @@ public abstract class MethodLookup {
                 @Override
                 public int getArgOffset() {
                     return !isStatic || insertDummyThis ? 1 : 0;
+                }
+            };
+        }
+
+        static Unreflector<Method> extensionMethod(String name) {
+            ExtensionMethodRegistry.REGISTRY.load();
+            return new Unreflector<>() {
+                @Override
+                public Method[] getDeclared(Class<?> clazz) {
+                    return ExtensionMethodRegistry.REGISTRY.getExtensionMethods(clazz, name).toArray(Method[]::new);
+                }
+
+                @Override
+                public boolean supportsOverride() {
+                    return false;
+                }
+
+                @Nullable
+                @Override
+                public Method findEquivalentIn(Class<?> clazz, Method of) {
+                    return null;
+                }
+
+                @Override
+                public String getName(Class<?> clazz) {
+                    return clazz.getCanonicalName() + '.' + name;
+                }
+
+                @Override
+                public MethodHandle unreflect(MethodHandles.Lookup lookup, Method method) throws IllegalAccessException {
+                    return lookup.unreflect(method);
                 }
             };
         }

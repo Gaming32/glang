@@ -36,6 +36,7 @@ public final class InstanceMethodLookup {
         .build(name -> new SimpleMethodLookup<>(Class.class, MethodLookup.Unreflector.method(name, false, false)));
 
     private final LoadingCache<String, Optional<MethodLookup>> lookup;
+    private final LoadingCache<String, Optional<MethodLookup>> extensionLookup;
     private final boolean forClass;
 
     private InstanceMethodLookup(Class<?> clazz, boolean forClass) {
@@ -51,6 +52,13 @@ public final class InstanceMethodLookup {
                 throw e;
             }
         });
+        extensionLookup = Caffeine.from(CACHE_SPEC).build(name -> {
+            try {
+                return Optional.of(new SimpleMethodLookup<>(clazz, MethodLookup.Unreflector.extensionMethod(name)));
+            } catch (NoSuchMethodException e) {
+                return Optional.empty();
+            }
+        });
         this.forClass = forClass;
     }
 
@@ -60,17 +68,28 @@ public final class InstanceMethodLookup {
 
     public MethodLookup getLookup(String methodName, boolean requireDirect) throws NoSuchMethodException {
         try {
+            Optional<MethodLookup> result;
             if (forClass) {
                 if (requireDirect) {
                     return CLASS_LOOKUP.get(methodName);
                 }
-                final Optional<MethodLookup> result = lookup.get(methodName);
-                //noinspection OptionalIsPresent
-                if (result.isEmpty()) {
-                    return CLASS_LOOKUP.get(methodName);
+                result = extensionLookup.get(methodName);
+                if (result.isPresent()) {
+                    return result.get();
                 }
-                return result.get();
+                result = lookup.get(methodName);
+                //noinspection OptionalIsPresent
+                if (result.isPresent()) {
+                    return result.get();
+                }
+                return CLASS_LOOKUP.get(methodName);
             } else {
+                if (!requireDirect) {
+                    result = extensionLookup.get(methodName);
+                    if (result.isPresent()) {
+                        return result.get();
+                    }
+                }
                 return lookup.get(methodName).orElseThrow(AssertionError::new);
             }
         } catch (CompletionException e) {

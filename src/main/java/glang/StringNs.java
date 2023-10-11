@@ -1,19 +1,20 @@
 package glang;
 
+import glang.runtime.extension.ExtensionMethod;
 import glang.util.GlangStringUtils;
 
 public class StringNs {
-//    @ExtensionMethod
+    @ExtensionMethod
     public static String escapeGlang(String thiz, String escapeQuotes) {
         return GlangStringUtils.escape(thiz, escapeQuotes);
     }
 
-//    @ExtensionMethod
+    @ExtensionMethod
     public static String escapeGlang(String thiz) {
         return escapeGlang(thiz, "\"'`");
     }
 
-//    @ExtensionMethod
+    @ExtensionMethod
     public static String getLine(String thiz, int index) {
         return GlangStringUtils.getLine(thiz, index);
     }

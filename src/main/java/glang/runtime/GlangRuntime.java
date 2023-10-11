@@ -3,6 +3,8 @@ package glang.runtime;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.CaffeineSpec;
 import com.github.benmanes.caffeine.cache.LoadingCache;
+import glang.exception.AmbiguousImportException;
+import glang.exception.ImportNotFoundException;
 import glang.exception.UninvokableObjectException;
 import glang.exception.UnknownGlobalException;
 import glang.runtime.lookup.FieldLookup;
@@ -112,7 +114,7 @@ public final class GlangRuntime {
         }
 
         for (final Class<?> nestMember : clazz.getNestMembers()) {
-            if (nestMember.getDeclaringClass() != clazz) continue;
+            if (!Modifier.isPublic(nestMember.getModifiers()) || nestMember.getDeclaringClass() != clazz) continue;
             final String simpleName = nestMember.getSimpleName();
             if (fieldNames.contains(simpleName) || methodNames.contains(simpleName)) {
                 result.remove(simpleName);
@@ -212,7 +214,7 @@ public final class GlangRuntime {
 
     public static CallSite importStar(
         MethodHandles.Lookup lookup, String name, MethodType type, String... path
-    ) throws Exception {
+    ) throws NoSuchMethodException, IllegalAccessException {
         if (!type.equals(IMPORT_STAR_MT)) {
             throw new IllegalArgumentException("importStar type != " + IMPORT_STAR_MT);
         }
@@ -224,16 +226,14 @@ public final class GlangRuntime {
 
     public static void importStar0(
         MethodHandles.Lookup lookup, List<String> path, Map<String, Object> destination
-    ) throws Exception {
+    ) throws ImportNotFoundException {
         destination.putAll(collectStarImport(findImportStarClass(lookup, path)));
     }
 
-    private static Class<?> findImportStarClass(MethodHandles.Lookup lookup, List<String> path) throws Exception {
-        final Exception originalE;
+    private static Class<?> findImportStarClass(MethodHandles.Lookup lookup, List<String> path) throws ImportNotFoundException {
         try {
             return lookup.findClass(String.join(".", path));
-        } catch (Exception e) {
-            originalE = e;
+        } catch (Exception ignored) {
         }
         for (int i = path.size() - 2; i >= 0; i--) {
             try {
@@ -244,12 +244,12 @@ public final class GlangRuntime {
             } catch (Exception ignored) {
             }
         }
-        throw originalE;
+        throw new ImportNotFoundException(path, null, null);
     }
 
     public static CallSite doImport(
         MethodHandles.Lookup lookup, String name, MethodType type, String... path
-    ) throws Exception {
+    ) throws NoSuchMethodException, IllegalAccessException {
         if (!type.equals(DO_IMPORT_MT)) {
             throw new IllegalArgumentException("doImport type != " + DO_IMPORT_MT);
         }
@@ -259,7 +259,96 @@ public final class GlangRuntime {
         ));
     }
 
-    public static Object doImport0(MethodHandles.Lookup lookup, List<String> path, String target) throws Exception {
-        return null;
+    public static Object doImport0(MethodHandles.Lookup lookup, List<String> path, String target) throws ImportNotFoundException {
+        if (path.isEmpty()) {
+            try {
+                return lookup.findClass(target);
+            } catch (Exception e) {
+                throw new ImportNotFoundException(path, target, null).initCause(e);
+            }
+        }
+        String joined = String.join(".", path);
+        try {
+            return lookup.findClass(joined + "$" + target);
+        } catch (Exception ignored) {
+        }
+        //noinspection CatchMayIgnoreException
+        try {
+            return findImport(lookup.findClass(joined), target, path);
+        } catch (Exception e) {
+            if (e instanceof AmbiguousImportException aie) {
+                throw aie;
+            }
+        }
+        for (int i = path.size() - 2; i >= 0; i--) {
+            joined = String.join(".", path.subList(0, i)) + "." +
+                String.join("$", path.subList(i, path.size()));
+            try {
+                return lookup.findClass(joined + "$" + target);
+            } catch (Exception ignored) {
+            }
+            //noinspection CatchMayIgnoreException
+            try {
+                return findImport(lookup.findClass(joined), target, path);
+            } catch (Exception e) {
+                if (e instanceof AmbiguousImportException aie) {
+                    throw aie;
+                }
+            }
+        }
+        throw new ImportNotFoundException(path, target, null);
+    }
+
+    private static Object findImport(Class<?> clazz, String name, List<String> path) throws ImportNotFoundException {
+        boolean found = false;
+        Object result = null;
+        final int publicStatic = Modifier.PUBLIC | Modifier.STATIC;
+
+        for (final Field field : clazz.getDeclaredFields()) {
+            if ((field.getModifiers() & publicStatic) != publicStatic || !field.getName().equals(name)) continue;
+            try {
+                result = field.get(null);
+                found = true;
+                break;
+            } catch (IllegalAccessException e) {
+                throw new RuntimeException("Failed to access public field " + field.getName(), e);
+            }
+        }
+
+        for (final Method method : clazz.getDeclaredMethods()) {
+            if ((method.getModifiers() & publicStatic) != publicStatic || !method.getName().equals(name)) continue;
+            if (found) {
+                throw new AmbiguousImportException(path, name);
+            }
+            try {
+                result = new SimpleMethodLookup<>(
+                    clazz, MethodLookup.Unreflector.method(method.getName(), true, false)
+                );
+                found = true;
+                break;
+            } catch (NoSuchMethodException e) {
+                throw new RuntimeException(clazz + " doesn't contain public method " + method.getName());
+            }
+        }
+
+        for (final Class<?> nestMember : clazz.getNestMembers()) {
+            if (
+                !Modifier.isPublic(nestMember.getModifiers()) ||
+                    nestMember.getDeclaringClass() != clazz ||
+                    !nestMember.getSimpleName().equals(name)
+            ) continue;
+            if (found) {
+                throw new AmbiguousImportException(path, name);
+            }
+            result = nestMember;
+            found = true;
+            break;
+        }
+
+        if (!found) {
+            throw new ImportNotFoundException(path, name, null);
+        }
+
+        return result;
     }
 }

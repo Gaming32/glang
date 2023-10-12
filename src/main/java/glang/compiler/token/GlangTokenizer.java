@@ -277,28 +277,57 @@ public final class GlangTokenizer {
             next();
             throw error("Expected number");
         }
-        Number number;
-        if (hasDecimal) {
-            try {
-                number = Double.parseDouble(token);
-            } catch (NumberFormatException e) {
-                throw error("Invalid decimal: " + e.getMessage(), tokenBuilder.length());
-            }
-        } else {
-            try {
-                number = Integer.parseInt(token, radix);
-            } catch (NumberFormatException e1) {
+
+        final Number number = switch (peek()) {
+            case 'D', 'd' -> {
+                next();
                 try {
-                    number = Long.parseLong(token, radix);
-                } catch (NumberFormatException e2) {
+                    yield Double.parseDouble(token);
+                } catch (NumberFormatException e) {
+                    throw error("Invalid D number: " + e.getMessage(), tokenBuilder.length() + 1);
+                }
+            }
+            case 'L', 'l' -> {
+                next();
+                try {
+                    yield Long.parseLong(token, radix);
+                } catch (NumberFormatException e) {
+                    throw error("Invalid L number: " + e.getMessage(), tokenBuilder.length() + 1);
+                }
+            }
+            case 'B', 'b' -> {
+                next();
+                try {
+                    yield new BigInteger(token, radix);
+                } catch (NumberFormatException e) {
+                    throw error("Invalid B number: " + e.getMessage(), tokenBuilder.length() + 1);
+                }
+            }
+            default -> {
+                if (hasDecimal) {
                     try {
-                        number = new BigInteger(token, radix);
-                    } catch (NumberFormatException e3) {
-                        throw error("Invalid integer: " + e3.getMessage(), tokenBuilder.length());
+                        yield Double.parseDouble(token);
+                    } catch (NumberFormatException e) {
+                        throw error("Invalid decimal: " + e.getMessage(), tokenBuilder.length());
+                    }
+                } else {
+                    try {
+                        yield Integer.parseInt(token, radix);
+                    } catch (NumberFormatException e1) {
+                        try {
+                            yield Long.parseLong(token, radix);
+                        } catch (NumberFormatException e2) {
+                            try {
+                                yield new BigInteger(token, radix);
+                            } catch (NumberFormatException e3) {
+                                throw error("Invalid integer: " + e3.getMessage(), tokenBuilder.length());
+                            }
+                        }
                     }
                 }
             }
-        }
+        };
+
         result.add(new Token.Num(number, getSourceLocation(tokenBuilder.length())));
     }
 

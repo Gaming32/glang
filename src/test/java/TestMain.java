@@ -13,7 +13,10 @@ import java.util.Map;
 
 public class TestMain {
     public static final String SOURCE = """
-        println(3 <= 7)
+        println(5.getClass())
+        println(5L.getClass())
+        println(5B.getClass())
+        println(5D.getClass())
         """;
 
     public static void main(String[] args) {

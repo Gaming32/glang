@@ -13,10 +13,10 @@ import java.util.Map;
 
 public class TestMain {
     public static final String SOURCE = """
-        println(5.getClass())
-        println(5L.getClass())
-        println(5B.getClass())
-        println(5D.getClass())
+        println(5 + 5)
+        println(5L + 5L)
+        println(5B + 5B)
+        println(5D + 5D)
         """;
 
     public static void main(String[] args) {

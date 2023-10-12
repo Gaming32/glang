@@ -148,6 +148,12 @@ public final class GlangRuntime {
         return getInstanceMethod(obj, name, true);
     }
 
+    public static Object binaryOperator(Object lhs, Object rhs, String opName) throws Throwable {
+        return getInstanceMethod(lhs, opName, false)
+            .getInvoker(List.of(getClass(lhs), getClass(rhs)))
+            .invoke(lhs, rhs);
+    }
+
     public static FieldLookup getFieldLookup(Object obj) {
         final boolean isClass = obj instanceof Class<?>;
         return FieldLookup.get(isClass ? (Class<?>)obj : obj.getClass(), isClass);

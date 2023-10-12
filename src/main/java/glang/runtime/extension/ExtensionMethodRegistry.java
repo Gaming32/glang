@@ -1,8 +1,11 @@
 package glang.runtime.extension;
 
+import glang.runtime.RuntimeUtil;
+
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.*;
+import java.util.function.Predicate;
 
 public final class ExtensionMethodRegistry {
     public static final ExtensionMethodRegistry REGISTRY = new ExtensionMethodRegistry();
@@ -13,13 +16,18 @@ public final class ExtensionMethodRegistry {
     private ExtensionMethodRegistry() {
     }
 
-    public void register(Method method) {
+    public void register(String name, Method method) {
         if (method.getParameterCount() == 0) {
             throw new IllegalArgumentException("Extension method must have at least one parameter");
         }
-        lookup.computeIfAbsent(method.getParameterTypes()[0], c -> new HashMap<>())
-            .computeIfAbsent(method.getName(), m -> new ArrayList<>())
+        final Class<?> clazz = method.getParameterTypes()[0];
+        lookup.computeIfAbsent(RuntimeUtil.TO_WRAPPER_MAP.getOrDefault(clazz, clazz), c -> new HashMap<>())
+            .computeIfAbsent(name, m -> new ArrayList<>())
             .add(method);
+    }
+
+    public void register(Method method) {
+        register(method.getName(), method);
     }
 
     public void registerAll(Class<?> clazz) {
@@ -27,6 +35,20 @@ public final class ExtensionMethodRegistry {
             if (!Modifier.isStatic(m.getModifiers()) || !m.isAnnotationPresent(ExtensionMethod.class)) continue;
             register(m);
         }
+    }
+
+    public void registerAllStatic(Class<?> clazz, Predicate<Method> predicate) {
+        final int publicStatic = Modifier.PUBLIC | Modifier.STATIC;
+        for (final Method m : clazz.getDeclaredMethods()) {
+            if ((m.getModifiers() & publicStatic) != publicStatic || m.getParameterCount() == 0 || !predicate.test(m)) continue;
+            register(m);
+        }
+    }
+
+    public void copy(Class<?> clazz, String from, String to) {
+        lookup.computeIfAbsent(RuntimeUtil.TO_WRAPPER_MAP.getOrDefault(clazz, clazz), c -> new HashMap<>())
+            .computeIfAbsent(to, m -> new ArrayList<>())
+            .addAll(getExtensionMethods(clazz, from));
     }
 
     public List<Method> getExtensionMethods(Class<?> target, String name) {
@@ -71,6 +93,12 @@ public final class ExtensionMethodRegistry {
     }
 
     public synchronized void registerDefaults() {
-        ServiceLoader.load(ExtensionMethodRegistrar.class).forEach(r -> r.register(this));
+        ServiceLoader.load(ExtensionMethodRegistrar.class).forEach(r -> {
+            try {
+                r.register(this);
+            } catch (ReflectiveOperationException e) {
+                throw new RuntimeException(e);
+            }
+        });
     }
 }

@@ -13,9 +13,7 @@ import java.util.Map;
 
 public class TestMain {
     public static final String SOURCE = """
-        println("hi".length())
-        println(String.format("%s %s", 1, 2))
-        println("echo'".escapeGlang())
+        println(1 + 2)
         """;
 
     public static void main(String[] args) {

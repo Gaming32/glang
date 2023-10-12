@@ -35,6 +35,10 @@ public class GlangCompiler {
     private static final String CONDY_DESC_PREFIX = "(Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/Class;";
     private static final String IMPORT_DESC = "(Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/invoke/MethodType;[Ljava/lang/String;)Ljava/lang/invoke/CallSite;";
 
+    private static final Map<BinaryExpression.Operator, String> BINARY_OPERATORS = new EnumMap<>(Map.of(
+        BinaryExpression.Operator.ADD, "add"
+    ));
+
     private final String namespacePath;
     private final String className;
     private final String classNameInternal;
@@ -499,6 +503,22 @@ public class GlangCompiler {
             error(expression, "UnaryExpression not implemented yet");
             method.checkLine(expression);
             visitor.visitInsn(Opcodes.ACONST_NULL);
+        } else if (expression instanceof BinaryExpression binary) {
+            compileExpression(binary.getLeft());
+            compileExpression(binary.getRight());
+            method.checkLine(expression);
+            final String methodName = BINARY_OPERATORS.get(binary.getOperator());
+            if (methodName == null) {
+                error(expression, "Binary operator '" + binary.getOperator() + "' not implemented");
+                visitor.visitInsn(Opcodes.POP);
+            } else {
+                visitor.visitLdcInsn(methodName);
+                visitor.visitMethodInsn(
+                    Opcodes.INVOKESTATIC, g_r_GlangRuntime, "binaryOperator",
+                    "(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/String;)Ljava/lang/Object;",
+                    false
+                );
+            }
         } else {
             error(expression, "ExpressionNode " + expression.getClass().getSimpleName() + " not supported");
             method.checkLine(expression);

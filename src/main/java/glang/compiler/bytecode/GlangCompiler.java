@@ -36,7 +36,17 @@ public class GlangCompiler {
     private static final String IMPORT_DESC = "(Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/invoke/MethodType;[Ljava/lang/String;)Ljava/lang/invoke/CallSite;";
 
     private static final Map<BinaryExpression.Operator, String> BINARY_OPERATORS = new EnumMap<>(Map.of(
-        BinaryExpression.Operator.ADD, "add"
+        BinaryExpression.Operator.ADD, "add",
+        BinaryExpression.Operator.SUBTRACT, "subtract",
+        BinaryExpression.Operator.MULTIPLY, "multiply",
+        BinaryExpression.Operator.DIVIDE, "divide",
+        BinaryExpression.Operator.MODULO, "modulo",
+
+        BinaryExpression.Operator.EQ, "equals",
+        BinaryExpression.Operator.LT, "lessThan",
+        BinaryExpression.Operator.GT, "greaterThan",
+        BinaryExpression.Operator.LE, "lessThanEqual",
+        BinaryExpression.Operator.GE, "greaterThanEqual"
     ));
 
     private final String namespacePath;

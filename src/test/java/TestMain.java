@@ -13,7 +13,7 @@ import java.util.Map;
 
 public class TestMain {
     public static final String SOURCE = """
-        println(1 + 2)
+        println(3 <= 7)
         """;
 
     public static void main(String[] args) {

@@ -18,4 +18,14 @@ public class StringNs {
     public static String getLine(String thiz, int index) {
         return GlangStringUtils.getLine(thiz, index);
     }
+
+    @ExtensionMethod
+    public static String add(String thiz, Object other) {
+        return thiz + other;
+    }
+
+    @ExtensionMethod
+    public static String multiply(String thiz, int count) {
+        return thiz.repeat(count);
+    }
 }

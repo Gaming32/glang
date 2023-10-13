@@ -15,11 +15,6 @@ repositories {
 dependencies {
     implementation("org.ow2.asm:asm:9.6")
 
-    implementation("com.github.ben-manes.caffeine:caffeine:3.1.8") {
-        exclude(group = "org.checkerframework")
-        exclude(group = "com.google.errorprone")
-    }
-
     compileOnlyApi("org.jetbrains:annotations:24.0.1")
 }
 

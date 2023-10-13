@@ -1,6 +1,5 @@
 package glang.runtime.lookup;
 
-import com.github.benmanes.caffeine.cache.CaffeineSpec;
 import glang.util.ConcurrentCache;
 import org.jetbrains.annotations.Nullable;
 
@@ -11,10 +10,6 @@ import java.lang.reflect.Modifier;
 import java.util.concurrent.CompletionException;
 
 public final class FieldLookup {
-    public static final CaffeineSpec CACHE_SPEC = CaffeineSpec.parse(System.getProperty(
-        "glang.fieldLookup.cacheSpec", "softValues"
-    ));
-
     private static final ConcurrentCache<Class<?>, FieldLookup> INSTANCE_CACHE =
         new ConcurrentCache<>(clazz -> new FieldLookup(clazz, false));
     private static final ConcurrentCache<Class<?>, FieldLookup> STATIC_CACHE =

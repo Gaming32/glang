@@ -1,6 +1,5 @@
 package glang.runtime.lookup;
 
-import com.github.benmanes.caffeine.cache.CaffeineSpec;
 import glang.runtime.GlangRuntime;
 import glang.runtime.extension.ExtensionMethodRegistry;
 import glang.util.ConcurrentCache;
@@ -18,10 +17,6 @@ import java.util.List;
 import java.util.concurrent.CompletionException;
 
 public abstract class MethodLookup {
-    public static final CaffeineSpec CACHE_SPEC = CaffeineSpec.parse(System.getProperty(
-        "glang.methodLookup.cacheSpec", "initialCapacity=4,maximumSize=64,softValues"
-    ));
-
     protected static final MethodHandles.Lookup LOOKUP = MethodHandles.lookup();
 
     protected final ConcurrentCache<List<Class<?>>, MethodHandle> cache = new ConcurrentCache<>(args -> {

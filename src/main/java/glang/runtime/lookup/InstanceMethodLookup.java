@@ -1,6 +1,5 @@
 package glang.runtime.lookup;
 
-import com.github.benmanes.caffeine.cache.CaffeineSpec;
 import glang.util.ConcurrentCache;
 
 import java.lang.reflect.Method;
@@ -12,10 +11,6 @@ import java.util.concurrent.CompletionException;
 import java.util.stream.Collectors;
 
 public final class InstanceMethodLookup {
-    public static final CaffeineSpec CACHE_SPEC = CaffeineSpec.parse(System.getProperty(
-        "glang.instanceMethodLookup.cacheSpec", "softValues"
-    ));
-
     private static final ConcurrentCache<Class<?>, InstanceMethodLookup> INSTANCE_CACHE =
         new ConcurrentCache<>(clazz -> new InstanceMethodLookup(clazz, false));
     private static final ConcurrentCache<Class<?>, InstanceMethodLookup> STATIC_CACHE =

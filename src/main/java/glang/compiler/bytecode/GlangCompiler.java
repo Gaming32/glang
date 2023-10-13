@@ -252,6 +252,12 @@ public class GlangCompiler {
             compile(blockStatement.getStatements());
             scopeStates.pop();
         } else if (statement instanceof VariableDeclaration decl) {
+            if (decl.getInitializer() != null) {
+                compileExpression(decl.getInitializer());
+            } else {
+                method.checkLine(statement);
+                visitor.visitInsn(Opcodes.ACONST_NULL);
+            }
             final ScopeState scope = scopeStates.get();
             VariableInfo variable = scope.variables.get(decl.getName());
             boolean isNew = false;
@@ -261,12 +267,6 @@ public class GlangCompiler {
                 variable = new VariableInfo(method.currentLocal++);
                 scope.variables.put(decl.getName(), variable);
                 isNew = true;
-            }
-            if (decl.getInitializer() != null) {
-                compileExpression(decl.getInitializer());
-            } else {
-                method.checkLine(statement);
-                visitor.visitInsn(Opcodes.ACONST_NULL);
             }
             method.checkLine(statement);
             visitor.visitVarInsn(Opcodes.ASTORE, variable.index);

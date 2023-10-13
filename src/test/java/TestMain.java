@@ -13,15 +13,15 @@ import java.util.Map;
 
 public class TestMain {
     public static final String SOURCE = """
-        println(5 + 5)
-        println(5L + 5L)
-        println(5B + 5B)
-        println(5D + 5D)
+        {
+            var args = args
+            println(args)
+        }
         """;
 
     public static void main(String[] args) {
-        testCL(args);
-//        testCode(args);
+//        testCL(args);
+        testCode(args);
 //        testInvoke();
     }
 

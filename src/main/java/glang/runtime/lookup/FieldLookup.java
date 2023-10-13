@@ -1,8 +1,7 @@
 package glang.runtime.lookup;
 
-import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.CaffeineSpec;
-import com.github.benmanes.caffeine.cache.LoadingCache;
+import glang.util.SoftCacheMap;
 import org.jetbrains.annotations.Nullable;
 
 import java.lang.invoke.MethodHandle;
@@ -16,23 +15,25 @@ public final class FieldLookup {
         "glang.fieldLookup.cacheSpec", "softValues"
     ));
 
-    private static final LoadingCache<Class<?>, FieldLookup> INSTANCE_CACHE =
-        Caffeine.from(CaffeineSpec.parse(System.getProperty(
-            "glang.fieldLookup.instanceCacheSpec", "softValues"
-        ))).build(clazz -> new FieldLookup(clazz, false));
-    private static final LoadingCache<Class<?>, FieldLookup> STATIC_CACHE =
-        Caffeine.from(CaffeineSpec.parse(System.getProperty(
-            "glang.fieldLookup.staticCacheSpec", "softValues"
-        ))).build(clazz -> new FieldLookup(clazz, true));
+    private static final SoftCacheMap<Class<?>, FieldLookup> INSTANCE_CACHE =
+        new SoftCacheMap<>(clazz -> new FieldLookup(clazz, false));
+    private static final SoftCacheMap<Class<?>, FieldLookup> STATIC_CACHE =
+        new SoftCacheMap<>(clazz -> new FieldLookup(clazz, true));
 
     private static final MethodHandles.Lookup LOOKUP = MethodHandles.lookup();
 
-    private final LoadingCache<String, ResolvedField> lookup;
+    private final SoftCacheMap<String, ResolvedField> lookup;
     private final Class<?> clazz;
     private final boolean forClass;
 
     private FieldLookup(Class<?> clazz, boolean forClass) {
-        lookup = Caffeine.from(CACHE_SPEC).build(name -> getField(clazz, forClass, name));
+        lookup = new SoftCacheMap<>(name -> {
+            try {
+                return getField(clazz, forClass, name);
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        });
         this.clazz = clazz;
         this.forClass = forClass;
     }

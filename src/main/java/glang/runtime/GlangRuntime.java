@@ -1,8 +1,5 @@
 package glang.runtime;
 
-import com.github.benmanes.caffeine.cache.Caffeine;
-import com.github.benmanes.caffeine.cache.CaffeineSpec;
-import com.github.benmanes.caffeine.cache.LoadingCache;
 import glang.compiler.bytecode.GlangCompiler;
 import glang.exception.AmbiguousImportException;
 import glang.exception.ImportNotFoundException;
@@ -12,6 +9,7 @@ import glang.runtime.lookup.FieldLookup;
 import glang.runtime.lookup.InstanceMethodLookup;
 import glang.runtime.lookup.MethodLookup;
 import glang.runtime.lookup.SimpleMethodLookup;
+import glang.util.SoftCacheMap;
 
 import java.lang.invoke.CallSite;
 import java.lang.invoke.ConstantCallSite;
@@ -34,10 +32,14 @@ public final class GlangRuntime {
         Object.class, MethodHandles.Lookup.class, List.class, String.class
     );
 
-    private static final LoadingCache<Class<?>, SimpleMethodLookup<Constructor<?>>> CONSTRUCTOR_CACHE =
-        Caffeine.from(CaffeineSpec.parse(System.getProperty(
-            "glang.constructorLookup.cacheSpec", "softValues"
-        ))).build(clazz -> new SimpleMethodLookup<>(clazz, MethodLookup.Unreflector.CONSTRUCTOR));
+    private static final SoftCacheMap<Class<?>, SimpleMethodLookup<Constructor<?>>> CONSTRUCTOR_CACHE =
+        new SoftCacheMap<>(clazz -> {
+            try {
+                return new SimpleMethodLookup<>(clazz, MethodLookup.Unreflector.CONSTRUCTOR);
+            } catch (NoSuchMethodException e) {
+                throw new RuntimeException(e);
+            }
+        });
 
     private GlangRuntime() {
     }

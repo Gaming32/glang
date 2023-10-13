@@ -1,0 +1,18 @@
+import java.util.LinkedList
+var startTime = System.nanoTime()
+var primes = LinkedList()
+var num = 2
+while (primes.size() < 2000000) {
+    var iter = primes.iterator()
+    while (iter.hasNext()) {
+        var prime = iter.next()
+        if (!(num % prime)) {
+            break
+        }
+    } else {
+        primes.add(num)
+    }
+    num = num + 1
+}
+var endTime = System.nanoTime()
+println("time (ms): " + (endTime - startTime) / 1000000L)

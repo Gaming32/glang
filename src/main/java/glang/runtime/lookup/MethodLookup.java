@@ -1,10 +1,9 @@
 package glang.runtime.lookup;
 
-import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.CaffeineSpec;
-import com.github.benmanes.caffeine.cache.LoadingCache;
 import glang.runtime.GlangRuntime;
 import glang.runtime.extension.ExtensionMethodRegistry;
+import glang.util.SoftCacheMap;
 import org.jetbrains.annotations.Nullable;
 
 import java.lang.invoke.MethodHandle;
@@ -25,7 +24,13 @@ public abstract class MethodLookup {
 
     protected static final MethodHandles.Lookup LOOKUP = MethodHandles.lookup();
 
-    protected final LoadingCache<List<Class<?>>, MethodHandle> cache = Caffeine.from(CACHE_SPEC).build(this::lookup);
+    protected final SoftCacheMap<List<Class<?>>, MethodHandle> cache = new SoftCacheMap<>(args -> {
+        try {
+            return lookup(args);
+        } catch (NoSuchMethodException e) {
+            throw new RuntimeException(e);
+        }
+    });
 
     protected abstract MethodHandle lookup(List<Class<?>> args) throws NoSuchMethodException;
 

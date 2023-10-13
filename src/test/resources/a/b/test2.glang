@@ -1,15 +1,5 @@
-// println("hi".length())
-// println(String.format("%s", 5))
-// println(String.!getName())
-// println(String::format)
-// println(String.format)
+import a.b.test1
 
-println(args)
-args = "hi"
-println(args)
+test1.main(args)
 
-var `\0` = "hello"
-
-// {
-// 	var a = "world"
-// }
+println("In test2")

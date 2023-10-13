@@ -20,14 +20,14 @@ public class TestMain {
         """;
 
     public static void main(String[] args) {
-//        testCL(args);
-        testCode(args);
+        testCL(args);
+//        testCode(args);
 //        testInvoke();
     }
 
     private static void testCL(String[] args) {
         try (var cl = new GlangClassLoader()) {
-            cl.loadClass("a.b.Test2Ns")
+            cl.loadClass("a.b.Test1Ns")
                 .getDeclaredMethod("main", String[].class)
                 .invoke(null, (Object)args);
         } catch (InvocationTargetException e) {

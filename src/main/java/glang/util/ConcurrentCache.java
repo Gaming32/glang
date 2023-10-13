@@ -8,11 +8,14 @@ import java.lang.ref.SoftReference;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 
+/**
+ * @author WagYourTail
+ */
 public class ConcurrentCache<K, V> {
     public static final Cleaner CLEANER = Cleaner.create();
-    public final Function<K, V> defaultComputeIfAbsent;
 
-    public final ConcurrentHashMap<K, SoftReference<V>> map = new ConcurrentHashMap<>();
+    private final Function<K, V> defaultComputeIfAbsent;
+    private final ConcurrentHashMap<K, SoftReference<V>> map = new ConcurrentHashMap<>();
 
     public ConcurrentCache(Function<K, V> defaultComputeIfAbsent) {
         this.defaultComputeIfAbsent = defaultComputeIfAbsent;
@@ -20,18 +23,6 @@ public class ConcurrentCache<K, V> {
 
     public ConcurrentCache() {
         this(null);
-    }
-
-    public static void main(String[] args) {
-        ConcurrentCache<String, Object> cache = new ConcurrentCache<>();
-        for (int i = 0; i < Integer.MAX_VALUE; i++) {
-            if (i % 500000 == 0) {
-                System.out.print("progress: " + (i / (float) Integer.MAX_VALUE) * 100);
-                System.out.println(", i:" + i + ", mapSize: " + cache.size());
-            }
-            cache.put("test" + i, new Object());
-        }
-        System.out.println(cache.size());
     }
 
     /**

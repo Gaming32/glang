@@ -1,8 +1,7 @@
 package glang.runtime.lookup;
 
-import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.CaffeineSpec;
-import com.github.benmanes.caffeine.cache.LoadingCache;
+import glang.util.ConcurrentCache;
 
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
@@ -17,30 +16,30 @@ public final class InstanceMethodLookup {
         "glang.instanceMethodLookup.cacheSpec", "softValues"
     ));
 
-    private static final LoadingCache<Class<?>, InstanceMethodLookup> INSTANCE_CACHE =
-        Caffeine.from(CaffeineSpec.parse(System.getProperty(
-            "glang.instanceMethodLookup.instanceCacheSpec", "softValues"
-        ))).build(clazz -> new InstanceMethodLookup(clazz, false));
-    private static final LoadingCache<Class<?>, InstanceMethodLookup> STATIC_CACHE =
-        Caffeine.from(CaffeineSpec.parse(System.getProperty(
-            "glang.instanceMethodLookup.staticCacheSpec", "softValues"
-        ))).build(clazz -> new InstanceMethodLookup(clazz, true));
+    private static final ConcurrentCache<Class<?>, InstanceMethodLookup> INSTANCE_CACHE =
+        new ConcurrentCache<>(clazz -> new InstanceMethodLookup(clazz, false));
+    private static final ConcurrentCache<Class<?>, InstanceMethodLookup> STATIC_CACHE =
+        new ConcurrentCache<>(clazz -> new InstanceMethodLookup(clazz, true));
 
     private static final Set<String> CLASS_METHODS = Arrays.stream(Class.class.getMethods())
         .filter(m -> (m.getModifiers() & (Modifier.PUBLIC | Modifier.STATIC)) == Modifier.PUBLIC)
         .map(Method::getName)
         .collect(Collectors.toUnmodifiableSet());
-    private static final LoadingCache<String, MethodLookup> CLASS_LOOKUP = Caffeine.from(CACHE_SPEC)
-        .initialCapacity(CLASS_METHODS.size())
-        .maximumSize(CLASS_METHODS.size())
-        .build(name -> new SimpleMethodLookup<>(Class.class, MethodLookup.Unreflector.method(name, false, false)));
+    private static final ConcurrentCache<String, MethodLookup> CLASS_LOOKUP =
+        new ConcurrentCache<>(name -> {
+            try {
+                return new SimpleMethodLookup<>(Class.class, MethodLookup.Unreflector.method(name, false, false));
+            } catch (NoSuchMethodException e) {
+                throw new RuntimeException(e);
+            }
+        });
 
-    private final LoadingCache<String, Optional<MethodLookup>> lookup;
-    private final LoadingCache<String, Optional<MethodLookup>> extensionLookup;
+    private final ConcurrentCache<String, Optional<MethodLookup>> lookup;
+    private final ConcurrentCache<String, Optional<MethodLookup>> extensionLookup;
     private final boolean forClass;
 
     private InstanceMethodLookup(Class<?> clazz, boolean forClass) {
-        lookup = Caffeine.from(CACHE_SPEC).build(name -> {
+        lookup = new ConcurrentCache<>(name -> {
             try {
                 return Optional.of(new SimpleMethodLookup<>(
                     clazz, MethodLookup.Unreflector.method(name, forClass, forClass)
@@ -49,10 +48,14 @@ public final class InstanceMethodLookup {
                 if (forClass && CLASS_METHODS.contains(name)) {
                     return Optional.empty();
                 }
-                throw e;
+                try {
+                    throw e;
+                } catch (NoSuchMethodException ex) {
+                    throw new RuntimeException(ex);
+                }
             }
         });
-        extensionLookup = Caffeine.from(CACHE_SPEC).build(name -> {
+        extensionLookup = new ConcurrentCache<>(name -> {
             try {
                 return Optional.of(new SimpleMethodLookup<>(clazz, MethodLookup.Unreflector.extensionMethod(name)));
             } catch (NoSuchMethodException e) {
